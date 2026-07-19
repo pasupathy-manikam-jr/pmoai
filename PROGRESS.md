@@ -306,3 +306,88 @@ parameter list (interest rate / FX / commodity stay macro narrative).
 - `app/Services/FundAnalysisPrompt.php` (`renderFactsheet()` + factsheet/macro context)
 - `app/Http/Controllers/FundDetailController.php` (factsheet + macro into show + analyze)
 - `resources/views/details/show.blade.php` (factsheet section)
+
+## 2026-07-05 → 2026-07-19 — Screener → full personal wealth-management system
+
+The app outgrew the original screener. Everything below was built across
+these sessions; ARCHITECTURE.md now describes the current system — this
+entry is the changelog.
+
+### AI layer rebuilt on Claude CLI (web-researching, subscription-billed)
+- `ClaudeCliService` (ACTIVE, `LLM_PROVIDER=claude-cli`) shells
+  `claude -p --allowedTools WebSearch,WebFetch`; auth via
+  `claude setup-token` OAuth token in env (FPM has no Keychain). Billed to
+  the Max subscription — no API credits. Groq kept for testing.
+- All AI endpoints async: queue job + detached worker spawn
+  (`App\Support\Worker::spawn()` — nohup fails under FPM), status JSON +
+  JS polling + progress UI (kills the 30s FastCGI timeout and stale-page
+  problems; `no-store` headers + `filemtime()` CSS versioning everywhere).
+- Per-fund analysis is position-aware: USER POSITION context (P/L,
+  break-even math, years-to-break-even, position age) + series-filtered
+  SWITCH CANDIDATES. Holders get KEEP/SELL/REDUCE, non-held BUY/WAIT/AVOID.
+  Verdict discipline: SELL/REDUCE only on sustained multi-year weakness;
+  <90-day positions protected from churn advice.
+- Per-fund chat box (20-msg history) + whole-portfolio review memo
+  (`PortfolioReviewJob`: health/concentration/conflicts/live market
+  context with citations/action list).
+
+### Portfolio truth from statements
+- Holdings auto-capture from PMO account summary (multi-account rows
+  summed per fund) → `fund_details.payload.position` + daily
+  `portfolio_snapshots` equity curve.
+- 28 UT + 6 PRS statement PDFs + 7 PRS contribution summaries ingested →
+  `transactions` (TR-ref dedupe). Per-fund XIRR (bisection) with honesty
+  guards: completeness by implied-vs-actual units, `partial` when the
+  archive (≥Feb 2025 only) can't support the number, `too new` under 90
+  days. Fees-paid column. Holdings table shows Original start vs current
+  Run since (user sold out and restarted several funds), switch origin,
+  and a total row; Past funds table for exited positions.
+- PRS: RM3,000/yr tax-relief tracker on Overview (statement-proven,
+  synthetic `PRSC-*` refs dedupe future official ingests).
+
+### Decision support
+- Price triggers (`alerts`): below/above levels with plain-language
+  explanations, checked after every price capture, macOS notification +
+  dashboard banner. 8 armed — brackets on Indonesia, EMAS, India +
+  verdict levels on AI-Tech, Tactical.
+- What-if simulator (`/simulator`): fee-aware switch modelling using
+  PMO's real charge schedule (Mutual Gold), source position age
+  (auto 0.75%/0.5% under 90 days), and the e-Series rule.
+- Domain rules encoded everywhere (prompts, simulator, UI): 4PM MYT
+  cut-off Mon–Fri (live countdown), Mutual Gold switching charges,
+  **e-Series switches only within e-Series** (catalog detection
+  `Pe[A-Z]` case-sensitive; destination lists filtered; cross-series
+  priced as redeem + fresh sales charge), PRS never trade-advised.
+
+### Data pipelines added
+- MFR factsheet booklets via userscript button + bulk PDF download with
+  per-page memory; PRS fund reports via public-site API (no login,
+  `pmoai:fetch-prs`); fund-detail auto-capture (merge-preserving, code
+  self-heal); page reconnaissance captures.
+- Junk-row guard on catalog ingest (killed risk-word/category phantom
+  rows); catalog steady at ~190 funds; all code joins upper()-insensitive.
+
+### UI
+- Dashboard = landing page (`/` redirects to the singleton snapshot).
+  One card, classic folder tabs: Overview (default) | My holdings |
+  Past funds | AI review | Fund catalog. Fired alerts banner above.
+  Fund detail rebuilt as dossier with verdict stamp. Blade + vanilla JS
+  + hand-rolled CSS tokens (no framework migration).
+
+### Repo
+- 2026-07-19: git init, private GitHub `pasupathy-manikam-jr/pmoai`
+  (noreply commit email). Excluded: `.env`, all `storage/app` captures
+  (statements/PRS/MFR PDFs, CSVs), logs; userscript ingest token replaced
+  with a placeholder in the repo copies.
+
+### Real-world outcomes
+- Indonesia REDUCE executed (halved into PIATAF at RM0 switch charge,
+  near the local bottom); PIATAF now KEEP with review conditions.
+- Portfolio XIRR truth: Gold-account +6.93%/yr (complete), PRS +7.77%/yr
+  since 2019; ~RM6,380 lifetime fees surfaced.
+
+### Open
+- EPF ~5.5%/yr benchmark line on the equity curve (last roadmap item).
+- PBINDOBF factsheet parse glitch (benchmark_name='2022').
+- User money decisions pending: e-Cash deployment, AI-Tech trim
+  (e-series destinations only), EMAS trim (trigger bracket armed).
