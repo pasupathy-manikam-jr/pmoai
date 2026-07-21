@@ -32,6 +32,17 @@ class EmbeddingService
 
     private function ollama(array $texts): array
     {
+        // Local embed models have a hard context window (mxbai-embed-large =
+        // 512 tokens ≈ 2000 chars); Ollama ERRORS rather than truncating when
+        // the input overflows. Cap each text so long bodies (MFR macro
+        // sections) still embed — the lead paragraphs carry the gist that
+        // semantic search matches on. Cap is generous enough not to touch
+        // normal short embeds.
+        // 1200 chars stays under 512 tokens even for number-dense text
+        // (tables tokenize at ~2.5 chars/token vs ~4 for prose).
+        $cap = (int) config('ai.embed_max_chars', 1200);
+        $texts = array_map(fn ($t) => mb_strlen($t) > $cap ? mb_substr($t, 0, $cap) : $t, $texts);
+
         $res = Http::asJson()
             ->timeout(60)
             ->post(rtrim(config('ai.ollama_url'), '/').'/api/embed', [

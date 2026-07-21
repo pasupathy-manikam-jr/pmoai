@@ -247,7 +247,12 @@ function panel() {
     + 'background:#111;color:#eee;font:12px system-ui;padding:12px;border-radius:8px;'
     + 'width:260px;box-shadow:0 4px 16px rgba(0,0,0,.4)';
   box.innerHTML = `
-    <b style="color:#c8102e">pmoai capture</b>
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <b style="color:#c8102e">pmoai capture</b>
+      <button id="pmoai-min" title="minimize" style="background:#333;color:#eee;border:0;
+        border-radius:5px;cursor:pointer;width:22px;height:22px;line-height:1;font-size:14px">–</button>
+    </div>
+    <div id="pmoai-body">
     <div id="pmoai-st" style="margin:8px 0;line-height:1.6"></div>
     <button id="pmoai-cap" style="margin-top:8px;width:100%;padding:7px;
       background:#1a7;color:#fff;border:0;border-radius:5px;cursor:pointer">Capture this tab</button>
@@ -266,8 +271,25 @@ function panel() {
       background:#c8102e;color:#fff;border:0;border-radius:5px;cursor:pointer">Send to pmoai</button>
     <button id="pmoai-clear" style="margin-top:6px;width:100%;padding:4px;
       background:#444;color:#bbb;border:0;border-radius:5px;cursor:pointer;font-size:11px">Clear captured</button>
-    <div id="pmoai-msg" style="margin-top:6px;color:#9c9"></div>`;
+    <div id="pmoai-msg" style="margin-top:6px;color:#9c9"></div>
+    </div>`;
   document.body.appendChild(box);
+
+  // minimize: collapse to just the title bar, persist across visits
+  const body = box.querySelector('#pmoai-body');
+  const minBtn = box.querySelector('#pmoai-min');
+  const applyMin = (m) => {
+    body.style.display = m ? 'none' : '';
+    minBtn.textContent = m ? '+' : '–';
+    minBtn.title = m ? 'expand' : 'minimize';
+    box.style.width = m ? 'auto' : '260px';
+  };
+  applyMin(GM_getValue('panel_min', false));
+  minBtn.onclick = () => {
+    const m = body.style.display !== 'none';
+    GM_setValue('panel_min', m);
+    applyMin(m);
+  };
 
   const render = () => {
     const st = box.querySelector('#pmoai-st');

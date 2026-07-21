@@ -52,7 +52,7 @@
         </section>
 
         @php
-            $wiHeld = $portfolio->map(fn ($h) => ['id' => $h['id'], 'name' => $h['name'], 'value' => $h['value'], 'since' => $h['since'] ?? null])->values();
+            $wiHeld = $portfolio->map(fn ($h) => ['id' => $h['id'], 'name' => $h['name'], 'value' => $h['value'], 'invested' => $h['invested'] ?? null, 'since' => $h['since'] ?? null])->values();
             $wiFunds = $funds->map(fn ($f) => [
                 'code' => $f->code,
                 'name' => $f->name,
@@ -60,6 +60,9 @@
                 'r3' => $f->return_3y !== null ? (float) $f->return_3y : null,
                 'risk' => $f->risk,
                 'shariah' => (bool) $f->shariah,
+                // real risk from latest factsheet (volatility factor + class)
+                'vf' => $vol[strtoupper($f->code ?? '')]['vf'] ?? null,
+                'vclass' => $vol[strtoupper($f->code ?? '')]['vclass'] ?? null,
             ])->values();
             $wiDetailFund = $portfolio->mapWithKeys(function ($h) use ($detailByCode) {
                 $code = collect($detailByCode)->search($h['id']);
@@ -96,6 +99,21 @@
             var crossSeries = function (fromHeld, to) {
                 return !!fromHeld && isEName(fromHeld.name) !== isE(to);
             };
+            // Some funds have NO switching facility at all (per their PHS) — the
+            // only exit is redemption to cash, then a fresh purchase of the
+            // destination (its full sales charge, days out of market). PeEMAS
+            // (Public e-Emas Gold Fund) is one: "Switching charge: Not
+            // applicable. No switching allowed." Applies whether it's the
+            // source OR the destination.
+            var noSwitch = function (f) {
+                if (!f) return false;
+                return /EMAS|GOLD FUND/i.test(f.name || '') || /^PEEMAS$/i.test(f.code || '');
+            };
+            // A move needs the redeem-to-cash + fresh-purchase model when it
+            // crosses e/non-e series OR touches a no-switch fund on either leg.
+            var mustRedeem = function (fromHeld, to) {
+                return crossSeries(fromHeld, to) || noSwitch(fromHeld) || noSwitch(to);
+            };
             // Destination datalist honours the series rule: picking an
             // e-Series source narrows "To" to e-Series funds only (and
             // vice versa). New money can buy either series.
@@ -105,7 +123,10 @@
                 var list = document.getElementById('wi-funds');
                 var toInput = document.getElementById('wi-to');
                 var pool = FUNDS;
-                if (fromHeld) {
+                // A no-switch source (e.g. e-Emas) can only be redeemed to cash,
+                // then the cash buys ANY fund — so the series filter doesn't
+                // apply; offer the full list. Otherwise honour the series rule.
+                if (fromHeld && !noSwitch(fromHeld)) {
                     var wantE = isEName(fromHeld.name);
                     pool = FUNDS.filter(function (f) { return isE(f) === wantE; });
                 }
@@ -117,7 +138,7 @@
                     list.appendChild(o);
                 });
                 var cur = findFund(toInput.value);
-                if (fromHeld && cur && crossSeries(fromHeld, cur)) {
+                if (fromHeld && !noSwitch(fromHeld) && cur && crossSeries(fromHeld, cur)) {
                     toInput.value = '';
                     document.getElementById('wi-fee-note').textContent =
                         '⚠ destination cleared — ' + (isEName(fromHeld.name) ? 'e-Series switches only to e-Series' : 'non-e switches only to non-e') + '. List narrowed.';
@@ -128,9 +149,27 @@
                 if (!to) return;
                 var fromId = document.getElementById('wi-from').value;
                 var fromHeld = fromId !== '__cash__' ? HELD.find(function (h) { return String(h.id) === fromId; }) : null;
+                // "cash" here = zero-sales-charge money: uninvested new money
+                // (__cash__) OR a held money-market fund (e-Cash). Both never
+                // paid an equity sales charge, so switching into equity carries
+                // the destination's full sales charge (PMO official rule: no
+                // switching FEE leaving a money-market fund, but the destination
+                // equity fund's SALES CHARGE still applies — 3.75% e-series /
+                // up to 5% non-e). Equity→equity differs: those units already
+                // paid it, so a same-series switch after 90d is free.
                 var srcIsCash = !fromHeld || /CASH|MONEY MARKET/i.test(fromHeld.name);
                 var fee, why;
-                if (fromHeld && crossSeries(fromHeld, to)) {
+                if (fromHeld && noSwitch(fromHeld)) {
+                    fee = salesCharge(to);
+                    why = '⛔ ' + fromHeld.name.split(' ').slice(0, 3).join(' ')
+                        + ' has NO switching facility (PHS: "no switching allowed"). Only exit is REDEEM TO CASH, '
+                        + 'then buy the destination fresh: full sales charge (max rate shown) + days out of market. Crystallizes any gain/loss.';
+                } else if (noSwitch(to)) {
+                    fee = salesCharge(to);
+                    why = '⛔ ' + to.name.split(' ').slice(0, 3).join(' ')
+                        + ' cannot be switched INTO (PHS: "no switching allowed"). Redeem the source to cash, then buy it fresh: sales charge up to '
+                        + fee + '%.';
+                } else if (fromHeld && crossSeries(fromHeld, to)) {
                     fee = salesCharge(to);
                     why = '⚠ NOT SWITCHABLE — ' + (isEName(fromHeld.name) ? 'e-Series → non-e' : 'non-e → e-Series')
                         + '. Must redeem to cash first, then buy fresh: full sales charge on the destination (max rate shown)';
@@ -154,7 +193,27 @@
                 var n = document.getElementById('wi-fee-note');
                 n.textContent = 'suggested: ' + why;
             };
-            document.getElementById('wi-from').addEventListener('change', function () { rebuildToList(); suggestFee(); });
+            // A no-switch source (e.g. e-Emas) can't be switched at all — lock
+            // the destination input and Simulate button so no move is modelled.
+            var lockForNoSwitch = function () {
+                var fromId = document.getElementById('wi-from').value;
+                var fromHeld = fromId !== '__cash__' ? HELD.find(function (h) { return String(h.id) === fromId; }) : null;
+                var locked = noSwitch(fromHeld);
+                document.getElementById('wi-to').disabled = locked;
+                document.getElementById('wi-go').disabled = locked;
+                var out = document.getElementById('wi-out');
+                if (locked) {
+                    document.getElementById('wi-fee-note').textContent =
+                        '⛔ ' + fromHeld.name.split(' ').slice(0, 3).join(' ')
+                        + ' has NO switching facility — cannot switch out. Redeem to cash first (crystallizes gain/loss), then invest separately.';
+                    out.hidden = true;
+                }
+                return locked;
+            };
+            document.getElementById('wi-from').addEventListener('change', function () {
+                if (lockForNoSwitch()) return;
+                rebuildToList(); suggestFee();
+            });
             // A filled datalist input only offers its own value back — clear it
             // on focus so the full list drops down again; restore on blur if
             // the user picked nothing new.
@@ -168,6 +227,7 @@
                 suggestFee();
             });
             rebuildToList();
+            lockForNoSwitch();
 
             var rate = function (f) {
                 if (f.r5 !== null) return { r: f.r5 / 100, src: '5Y avg' };
@@ -200,14 +260,39 @@
                 var rFrom = fromFund ? rate(fromFund) : { r: 0, src: 'cash — 0%' };
 
                 var total = HELD.reduce(function (s, h) { return s + h.value; }, 0) + (fromHeld ? 0 : amt);
+                // existing balance already sitting in the destination fund — the
+                // net-50k lands on top of this and both grow at the dest rate.
+                var toHeldEarly = HELD.find(function (h) { return h.name.toUpperCase().indexOf(to.name.toUpperCase()) !== -1; });
+                var existingTo = toHeldEarly ? toHeldEarly.value : 0;
                 var rows = '';
-                [1, 3, 5].forEach(function (y) {
+                // y=0 = day-1 baseline (no growth): pow(_,0)=1, so figures are the
+                // raw principals — shows the starting pile before compounding.
+                [0, 1, 3, 5].forEach(function (y) {
                     var stay = amt * Math.pow(1 + rFrom.r, y);
                     var move = net * Math.pow(1 + rTo.r, y);
                     var d = move - stay;
-                    rows += '<tr><td>' + y + ' yr</td><td>' + fmt(stay) + '</td><td>' + fmt(move) + '</td>'
-                        + '<td class="' + (d >= 0 ? 'pos' : 'neg') + '">' + (d >= 0 ? '+' : '') + fmt(d) + '</td></tr>';
+                    // full destination pile after the switch: existing holding +
+                    // moved money, both compounding at the destination rate.
+                    var totalPos = (existingTo + net) * Math.pow(1 + rTo.r, y);
+                    rows += '<tr><td>' + (y === 0 ? 'now' : y + ' yr') + '</td><td>' + fmt(stay) + '</td><td>' + fmt(move) + '</td>'
+                        + '<td class="' + (d >= 0 ? 'pos' : 'neg') + '">' + (d >= 0 ? '+' : '') + fmt(d) + '</td>'
+                        + '<td>' + fmt(totalPos) + '</td></tr>';
                 });
+
+                // P/L readout — gain/loss on cost basis (invested). Informational
+                // only; does NOT feed the projection (future growth compounds on
+                // current value, not on what you paid — cost basis is sunk).
+                var pl = function (h) {
+                    if (!h || h.invested == null || !(h.invested > 0)) return null;
+                    var g = h.value - h.invested, pct = g / h.invested * 100;
+                    return '<span class="' + (g >= 0 ? 'pos' : 'neg') + '">'
+                        + (g >= 0 ? '+' : '') + fmt(g) + ' (' + (g >= 0 ? '+' : '') + pct.toFixed(1)
+                        + '%)</span> — paid ' + fmt(h.invested) + ', now ' + fmt(h.value);
+                };
+                var plFrom = pl(fromHeld);
+                var plTo = pl(toHeldEarly);
+                var realize = (fromHeld && fromHeld.invested > 0)
+                    ? (fromHeld.value - fromHeld.invested) * (amt / fromHeld.value) : null;
 
                 var wFromB = fromHeld ? (fromHeld.value / total * 100) : null;
                 var wFromA = fromHeld ? ((fromHeld.value - amt) / total * 100) : null;
@@ -217,18 +302,45 @@
 
                 out.hidden = false;
                 var xSeries = crossSeries(fromHeld, to);
+                var noSw = noSwitch(fromHeld) || noSwitch(to);
+                var noSwName = (noSwitch(fromHeld) ? fromHeld : (noSwitch(to) ? to : null));
                 out.innerHTML =
                     '<table>'
-                    + (xSeries
+                    + (noSw
+                        ? '<tr><th class="neg">No switch</th><td class="neg">⛔ ' + noSwName.name.split(' ').slice(0, 3).join(' ')
+                          + ' has NO switching facility (PHS: "no switching allowed"). This models REDEEM TO CASH + fresh purchase — '
+                          + 'destination sales charge applies, gain/loss is crystallized, and days out of market (settlement) are NOT modelled.</td></tr>'
+                        : xSeries
                         ? '<tr><th class="neg">Series</th><td class="neg">⚠ ' + (isEName(fromHeld.name) ? 'e-Series → non-e' : 'non-e → e-Series')
                           + ' — direct switch NOT allowed. This models redeem-to-cash + fresh purchase (destination sales charge applies; days out of market not modelled).</td></tr>'
                         : '')
                     + '<tr><th>Move</th><td>' + fmt(amt) + (fromHeld ? ' from ' + fromHeld.name : ' new money') + ' → ' + to.name + '</td></tr>'
                     + '<tr><th>Charge</th><td>' + (fee > 0 ? fmt(fee, 2) + ' (' + feePct + '%) — ' + fmt(net, 2) + ' actually invested' : 'none') + '</td></tr>'
+                    + (plFrom ? '<tr><th>' + fromHeld.name.split(' ').slice(0, 3).join(' ') + ' P/L</th><td>' + plFrom + '</td></tr>' : '')
+                    + (realize != null ? '<tr><th>Realizes on ' + fmt(amt) + '</th><td class="' + (realize >= 0 ? 'pos' : 'neg') + '">'
+                        + (realize >= 0 ? '+' : '') + fmt(realize) + ' ' + (realize >= 0 ? 'gain locked in' : 'loss crystallized') + ' (paper → real)</td></tr>' : '')
+                    + (plTo ? '<tr><th>' + to.name.split(' ').slice(0, 3).join(' ') + ' P/L</th><td>' + plTo + '</td></tr>' : '')
                     + (fromHeld ? '<tr><th>' + fromHeld.name.split(' ').slice(0, 3).join(' ') + ' weight</th><td>' + wFromB.toFixed(1) + '% → ' + wFromA.toFixed(1) + '%</td></tr>' : '')
                     + '<tr><th>' + to.name.split(' ').slice(0, 3).join(' ') + ' weight</th><td>' + wToB.toFixed(1) + '% → ' + wToA.toFixed(1) + '%</td></tr>'
-                    + '<tr><th>Rates used</th><td>stay: ' + (rFrom.r * 100).toFixed(2) + '%/yr (' + rFrom.src + ') · move: ' + (rTo.r * 100).toFixed(2) + '%/yr (' + rTo.src + ')</td></tr></table>'
-                    + '<table><tr><th></th><th>If it stays</th><th>If it moves</th><th>Difference</th></tr>' + rows + '</table>'
+                    + '<tr><th>Rates used</th><td>stay: ' + (rFrom.r * 100).toFixed(2) + '%/yr (' + rFrom.src + ') · move: ' + (rTo.r * 100).toFixed(2) + '%/yr (' + rTo.src + ')</td></tr>'
+                    // Risk change from factsheet volatility factor — a higher
+                    // return into a much more volatile fund isn't a free win.
+                    + (function () {
+                        var vf = function (f) { return f && f.vf != null ? f.vf.toFixed(1) + (f.vclass ? ' (' + f.vclass + ')' : '') : '—'; };
+                        var sf = fromFund || (srcIsCash ? { vf: 0, vclass: 'cash' } : null);
+                        var moreRisk = fromFund && fromFund.vf != null && to.vf != null && to.vf > fromFund.vf;
+                        return '<tr><th>Risk (volatility)</th><td class="' + (moreRisk ? 'neg' : '') + '">'
+                            + vf(sf) + ' → ' + vf(to)
+                            + (moreRisk ? ' ⚠ moving to a MORE volatile fund' : '')
+                            + '<br><span class="ps-sub">higher volatility factor = bigger swings; from latest QFR factsheet</span></td></tr>';
+                    })()
+                    + '</table>'
+                    + '<table><tr><th></th><th>If it stays</th><th>If it moves</th><th>Difference</th>'
+                    + '<th>Total in ' + to.name.split(' ').slice(0, 3).join(' ') + '</th></tr>' + rows + '</table>'
+                    + (existingTo > 0
+                        ? '<p class="ps-sub" style="margin:6px 0 0">Total column = existing ' + fmt(existingTo)
+                          + ' already in ' + to.name.split(' ').slice(0, 3).join(' ') + ' + moved money, both at the dest rate.</p>'
+                        : '')
                     + '<p class="ps-sub">Projections compound each fund\'s own historical average — the past, not a prediction. Risk: '
                     + (to.risk || '?') + (to.shariah ? ' · Shariah' : '') + '. Confirm the actual charge with PMO before acting.</p>';
             };

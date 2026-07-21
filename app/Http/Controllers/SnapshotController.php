@@ -543,6 +543,21 @@ class SnapshotController extends Controller
     {
         $funds = Fund::orderBy('name')->get();
 
+        // Real risk per fund from the latest MFR/QFR factsheet: volatility
+        // factor + class, keyed by upper code. Lets the simulator show a
+        // switch's RISK change, not just its return — a higher-return move
+        // into a much more volatile fund is not a free win.
+        $vol = \App\Models\FundFactsheet::query()
+            ->whereIn('period', function ($q) {
+                $q->from('fund_factsheets')->selectRaw('max(period)');
+            })
+            ->get(['code', 'volatility_factor', 'volatility_class', 'benchmark_name'])
+            ->mapWithKeys(fn ($f) => [strtoupper($f->code) => [
+                'vf'        => $f->volatility_factor !== null ? (float) $f->volatility_factor : null,
+                'vclass'    => $f->volatility_class,
+                'benchmark' => $f->benchmark_name,
+            ]]);
+
         $details = FundDetail::all(['id', 'code', 'name']);
         $detailByCode = $details->filter(fn ($d) => $d->code)
             ->mapWithKeys(fn ($d) => [strtoupper($d->code) => $d->id]);
@@ -560,7 +575,7 @@ class SnapshotController extends Controller
             ->values();
 
         return response()
-            ->view('snapshots.simulator', compact('funds', 'portfolio', 'detailByCode'))
+            ->view('snapshots.simulator', compact('funds', 'portfolio', 'detailByCode', 'vol'))
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
     }
 
