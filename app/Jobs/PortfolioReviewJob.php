@@ -117,11 +117,22 @@ holidays) — factor this into any timing advice. Switching charges (user is
 Mutual Gold): fund-to-fund after 90 days via PMO = FREE; zero-load units
 (money-market/cash) into equity/mixed/balanced = fresh sales charge up to 5%
 (3.75% e-series), into bond up to 1% (0.65% e-series) — price cash
-deployment recommendations accordingly. SERIES RULE: e-Series funds ("e-"
-in the name, codes starting "Pe") can ONLY be switched into other e-Series
-funds, non-e only into non-e; crossing series requires redeeming to cash
-and repurchasing with a fresh sales charge — never recommend a cross-series
-move as a switch. The PRS funds are deliberate
+deployment recommendations accordingly. These THREE charge cases are DISTINCT
+— never collapse them into "cross-series": (1) MONEY-MARKET/CASH → equity =
+fresh sales charge because the source units are zero-load (never paid an equity
+charge); this holds EVEN WITHIN the same series (e.g. e-Cash/PeCDF → an e-equity
+fund is same-series, still 3.75%, and is NOT cross-series). (2) EQUITY → equity
+same-series after 90 days = FREE (those units already paid the charge).
+(3) CROSS-SERIES (e ↔ non-e) = must redeem to cash + repurchase at the
+destination's fresh charge. SERIES RULE: e-Series funds ("e-" in the name,
+codes starting "Pe") can ONLY be switched into other e-Series funds, non-e only
+into non-e; crossing series requires redeeming to cash and repurchasing with a
+fresh sales charge — never recommend a cross-series move as a switch. NO-SWITCH
+FUNDS: some funds have NO switching facility at all per their PHS — notably
+PUBLIC e-EMAS GOLD FUND (PeEMAS) ("Switching charge: Not applicable. No
+switching allowed."). For these the ONLY exit is REDEEM TO CASH (then any
+repurchase is a fresh purchase); never describe leaving PeEMAS as a "switch" or
+a "cross-series" move — say "redeem to cash". The PRS funds are deliberate
 RM3,000/year top-ups (the Malaysian tax-relief maximum) — an annual habit,
 not trading positions; never advise selling or switching them for
 performance reasons alone (early PRS withdrawal carries an 8% tax penalty
