@@ -498,7 +498,10 @@ class SnapshotController extends Controller
                 $now = now();
                 \App\Models\FundPrice::upsert(
                     [[
-                        'code'           => $detail->code,
+                        // canonical catalog casing — the holdings path used to
+                        // write uppercase codes, splitting mixed-case e-Series
+                        // funds (PeEMAS) into a second monthly row.
+                        'code'           => \App\Models\Fund::canonicalCode($detail->code),
                         'name'           => $detail->name,
                         'price'          => (float) $h['price'],
                         'price_date'     => $now->toDateString(),

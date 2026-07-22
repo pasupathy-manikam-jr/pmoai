@@ -147,7 +147,9 @@ class ExtractFundsJob implements ShouldQueue
                 continue;
             }
             $batch[] = [
-                'code'       => $code,
+                // canonical catalog casing so a fund never splits into
+                // case-variant rows across writers (see Fund::canonicalCode)
+                'code'       => \App\Models\Fund::canonicalCode($code),
                 'name'       => $r['name'],
                 'price'      => (float) $price,
                 'price_date' => $captureDate,

@@ -125,6 +125,11 @@ class FundAnalysis
 
                     return $pts;
                 })
+                // Sort chronologically: a fund whose code was captured under
+                // more than one case (e.g. PeEMAS vs PEEMAS) yields >1 row per
+                // month; without this the flattened points interleave and the
+                // "latest" price shown is wrong.
+                ->sortBy('date')
                 ->values()
             : collect();
 

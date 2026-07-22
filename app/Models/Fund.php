@@ -47,4 +47,22 @@ class Fund extends Model
     {
         return $this->factsheets()->orderByDesc('period')->first();
     }
+
+    /**
+     * Canonical catalog casing for a code. Price writers must funnel every
+     * code through this before upserting: fund_prices' (code, period) unique
+     * index is CASE-SENSITIVE, so 'PeEMAS' and 'PEEMAS' would split one fund's
+     * month into two rows (e-Series codes are mixed case). Returns the input
+     * unchanged when the code is not in the catalog. Memoized per process.
+     */
+    public static function canonicalCode(string $code): string
+    {
+        static $map = null;
+        if ($map === null) {
+            $map = static::whereNotNull('code')->pluck('code')
+                ->mapWithKeys(fn ($c) => [strtoupper($c) => $c])->all();
+        }
+
+        return $map[strtoupper($code)] ?? $code;
+    }
 }
