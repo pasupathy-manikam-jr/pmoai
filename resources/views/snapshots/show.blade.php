@@ -43,6 +43,10 @@
             </div>
 
             <div id="tab-holdings" class="ps-tabpane" hidden>
+            <style>
+                .pt-subrow td { background: #fafafa; color: #666; font-size: 12px; border-top: 0; }
+                .pt-subrow .pt-acct { padding-left: 14px; font-variant-numeric: tabular-nums; }
+            </style>
             <table class="pt-table">
                 <tr><th>Original</th><th>Run since</th><th>Fund</th><th>Origin</th><th>Invested</th><th>Current value</th><th>P/L (RM)</th><th>P/L (%)</th><th>My return /yr</th><th>Fees paid</th></tr>
                 @foreach ($portfolio as $h)
@@ -90,6 +94,25 @@
                         </td>
                         <td>{{ $x !== null ? 'RM '.number_format($x['fees'], 2) : '—' }}</td>
                     </tr>
+                    @if (! empty($h['accounts']) && count($h['accounts']) > 1)
+                        @foreach ($h['accounts'] as $acct)
+                            @php $apl = $acct['current_value'] - $acct['invested']; @endphp
+                            <tr class="pt-subrow">
+                                <td></td>
+                                <td class="pt-date">
+                                    @if (! empty($acct['since'])){{ \Illuminate\Support\Carbon::parse($acct['since'])->format('d M Y') }}@else —@endif
+                                </td>
+                                <td class="pt-acct">↳ acct {{ $acct['account_no'] ?? '—' }}</td>
+                                <td></td>
+                                <td>{{ number_format($acct['invested'], 2) }}</td>
+                                <td>{{ number_format($acct['current_value'], 2) }}</td>
+                                <td class="{{ $apl >= 0 ? 'pos' : 'neg' }}">{{ $fmtRm($apl) }}</td>
+                                <td class="{{ $apl >= 0 ? 'pos' : 'neg' }}">{{ ($apl >= 0 ? '+' : '') }}{{ number_format($apl / max($acct['invested'], 0.01) * 100, 2) }}%</td>
+                                <td></td>
+                                <td></td>
+                            </tr>
+                        @endforeach
+                    @endif
                 @endforeach
                 @php
                     $totFees = $portfolio->sum(fn ($h) => $h['xirr']['fees'] ?? 0);
@@ -308,6 +331,13 @@
 
             <div class="cat-filter">
                 <input type="search" id="f-name" placeholder="Search name or code…" autocomplete="off">
+                <select id="f-series">
+                    <option value="">All series</option>
+                    <option value="public">Public</option>
+                    <option value="e">Public e-Series</option>
+                    <option value="pb">PB</option>
+                    <option value="prs">PRS</option>
+                </select>
                 <select id="f-type">
                     <option value="">All types</option>
                     @foreach ($funds->pluck('fund_type')->filter()->unique()->sort() as $t)
@@ -331,13 +361,15 @@
             </div>
 
             <table id="catalog">
-                <tr><th>Name</th><th>Code</th><th>Screen</th><th>Type</th><th>Shariah</th><th>Unit</th><th>YTD%</th><th>1Y%</th><th>3Y%</th><th>5Y%</th><th>10Y%</th><th>Detail</th></tr>
+                <tr><th>#</th><th>Name</th><th>Code</th><th>Screen</th><th>Type</th><th>Shariah</th><th>Unit</th><th>YTD%</th><th>1Y%</th><th>3Y%</th><th>5Y%</th><th>10Y%</th><th>Detail</th></tr>
                 @foreach ($funds as $f)
                     @php $tag = $ideas[$f->id] ?? null; @endphp
                     <tr data-name="{{ strtolower($f->name.' '.($f->code ?? '')) }}"
                         data-type="{{ $f->fund_type ?? '' }}"
+                        data-series="{{ \App\Services\FundAnalysis::family($f) }}"
                         data-shariah="{{ $f->shariah ? 'yes' : 'no' }}"
                         data-idea="{{ $tag ?? '' }}">
+                        <td class="cat-num">{{ $loop->iteration }}</td>
                         <td>{{ $f->name }}</td>
                         <td class="cat-code">{{ $f->code ?? '—' }}</td>
                         <td>
@@ -374,6 +406,7 @@
             (function () {
                 var name = document.getElementById('f-name');
                 var type = document.getElementById('f-type');
+                var series = document.getElementById('f-series');
                 var shariah = document.getElementById('f-shariah');
                 var idea = document.getElementById('f-idea');
                 var count = document.getElementById('f-count');
@@ -383,21 +416,28 @@
                 function apply() {
                     var q = name.value.trim().toLowerCase();
                     var t = type.value;
+                    var se = series.value;
                     var s = shariah.value;
                     var i = idea.value;
                     var shown = 0;
                     rows.forEach(function (r) {
                         var ok = (!q || r.dataset.name.indexOf(q) !== -1)
                             && (!t || r.dataset.type === t)
+                            && (!se || r.dataset.series === se)
                             && (!s || r.dataset.shariah === s)
                             && (!i || r.dataset.idea === i);
                         r.hidden = !ok;
-                        if (ok) shown++;
+                        if (ok) {
+                            shown++;
+                            var n = r.querySelector('.cat-num');
+                            if (n) n.textContent = shown;   // renumber visible rows 1..N
+                        }
                     });
                     count.textContent = shown === rows.length ? '' : shown + ' of ' + rows.length;
                 }
                 name.addEventListener('input', apply);
                 type.addEventListener('change', apply);
+                series.addEventListener('change', apply);
                 shariah.addEventListener('change', apply);
                 idea.addEventListener('change', apply);
             })();

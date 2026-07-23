@@ -204,6 +204,9 @@ class SnapshotController extends Controller
                     'run_start'   => $runStart,
                     'run_exact'   => $runExact,
                     'origin'      => $code ? ($swsFirst[$code] ?? null) : null,
+                    // per-account sub-positions (same fund held in >1 account,
+                    // e.g. two PRS accounts) — null/1-elem = single account.
+                    'accounts'    => $d->payload['positions'] ?? null,
                 ];
             })
             ->sortByDesc('value')
@@ -435,6 +438,7 @@ class SnapshotController extends Controller
             'holdings'                     => ['required', 'array', 'min:1', 'max:50'],
             'holdings.*.name'              => ['required', 'string', 'max:255'],
             'holdings.*.code'              => ['nullable', 'string', 'max:32'],
+            'holdings.*.account_no'        => ['nullable', 'string', 'max:32'],
             'holdings.*.market_value'      => ['required', 'numeric', 'min:0'],
             'holdings.*.investment_cost'   => ['required', 'numeric', 'min:0'],
             'holdings.*.price'             => ['nullable', 'numeric', 'min:0'],
@@ -443,9 +447,11 @@ class SnapshotController extends Controller
         $details = FundDetail::all(['id', 'code', 'name']);
         $results = [];
 
-        // Resolve every row first, then AGGREGATE rows that land on the same
-        // fund — the same fund can be held in multiple accounts (e.g. two
-        // PRS accounts), and last-row-wins would silently drop the others.
+        // Resolve every row first, then GROUP rows that land on the same fund
+        // — the same fund can be held in multiple accounts (e.g. two PRS
+        // accounts). Each account is kept as its own sub-position; the
+        // aggregate (sum) is also stored so simulator/analysis/review/equity
+        // curve keep reading one `position` per fund unchanged.
         $byDetail = [];
         foreach ($data['holdings'] as $h) {
             $match = null;
@@ -468,29 +474,56 @@ class SnapshotController extends Controller
                 $results[] = ['name' => $h['name'], 'ok' => false, 'error' => 'no unique fund match'];
                 continue;
             }
-            if (! isset($byDetail[$match->id])) {
-                $byDetail[$match->id] = $h + ['accounts' => 1];
-            } else {
-                $byDetail[$match->id]['market_value'] += $h['market_value'];
-                $byDetail[$match->id]['investment_cost'] += $h['investment_cost'];
-                $byDetail[$match->id]['accounts']++;
-                // price identical across accounts of the same fund — keep it
-            }
+            $byDetail[$match->id]['name']       = $h['name'];
+            $byDetail[$match->id]['accounts'][] = [
+                'account_no'      => $h['account_no'] ?? null,
+                'investment_cost' => (float) $h['investment_cost'],
+                'market_value'    => (float) $h['market_value'],
+                'price'           => isset($h['price']) ? (float) $h['price'] : null,
+            ];
         }
 
-        foreach ($byDetail as $detailId => $h) {
+        foreach ($byDetail as $detailId => $info) {
             $detail = FundDetail::find($detailId);
             $payload = $detail->payload ?? [];
-            $prev = $payload['position'] ?? null;
+            $prevPositions = $payload['positions'] ?? [];
+            $prevSince = $payload['position']['since'] ?? null;
+
+            // One sub-position per account. Preserve each account's first
+            // tracked date by matching account_no against the prior capture.
+            $positions = [];
+            foreach ($info['accounts'] as $a) {
+                $since = null;
+                if ($a['account_no']) {
+                    foreach ($prevPositions as $pp) {
+                        if (($pp['account_no'] ?? null) === $a['account_no']) {
+                            $since = $pp['since'] ?? null;
+                            break;
+                        }
+                    }
+                }
+                $positions[] = [
+                    'account_no'    => $a['account_no'],
+                    'invested'      => $a['investment_cost'],
+                    'current_value' => $a['market_value'],
+                    'price'         => $a['price'],
+                    'since'         => $since ?? $prevSince ?? now()->toDateString(),
+                ];
+            }
+
+            $payload['positions'] = $positions;
+            // Aggregate across accounts — the fund-level view every other
+            // consumer reads. `since` = earliest tracked account.
             $payload['position'] = [
-                'invested'      => (float) $h['investment_cost'],
-                'current_value' => (float) $h['market_value'],
-                // First tracked date: kept across refreshes; a brand-new
-                // holding starts today. Pre-feature positions stay null
-                // (= treated as established).
-                'since'         => $prev ? ($prev['since'] ?? null) : now()->toDateString(),
+                'invested'      => array_sum(array_column($positions, 'invested')),
+                'current_value' => array_sum(array_column($positions, 'current_value')),
+                'since'         => collect($positions)->pluck('since')->filter()->min()
+                    ?? now()->toDateString(),
             ];
             $detail->update(['payload' => $payload]);
+
+            // price identical across accounts of the same fund — take any
+            $h = ['price' => collect($info['accounts'])->pluck('price')->filter()->first()];
 
             // Feed the daily price series too (PRS funds have no other
             // price source; UT funds just get an extra same-day point).
@@ -514,7 +547,8 @@ class SnapshotController extends Controller
                 );
             }
 
-            $results[] = ['name' => $h['name'], 'ok' => true, 'detail_id' => $detail->id];
+            $results[] = ['name' => $info['name'], 'ok' => true, 'detail_id' => $detail->id,
+                'accounts' => count($positions)];
         }
 
         // Portfolio value history: one row per day, refreshed on every

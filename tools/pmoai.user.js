@@ -187,16 +187,19 @@ function extractHoldings() {
   for (const t of tables) {
     for (const r of t.rows) {
       if (r === hr || r.cells.length <= Math.max(iMv, iCost)) continue;
-      // name cell may stack account no + fund name — take the alpha line
+      // name cell may stack account no + fund name — split them out. The
+      // account no (9-digit) lets pmoai track the same fund held in more
+      // than one account (e.g. two PRS accounts) as separate positions.
       const lines = (r.cells[iName].innerText || '').split('\n')
         .map(s => s.trim()).filter(Boolean);
       const name = lines.find(s => /[A-Za-z]{4,}/.test(s) && !/market|investment|category|total/i.test(s));
+      const acct = lines.find(s => /^\d{7,12}$/.test(s)) || null;
       const mv = num(r.cells[iMv].innerText);
       const cost = num(r.cells[iCost].innerText);
       const iP = extractHoldings._iPrice;
       const px = (iP >= 0 && r.cells[iP]) ? num(r.cells[iP].innerText) : null;
       if (name && mv !== null && cost !== null && mv > 0 && cost > 0) {
-        out.push({ name: name, market_value: mv, investment_cost: cost,
+        out.push({ name: name, account_no: acct, market_value: mv, investment_cost: cost,
                    price: px > 0 ? px : null });
       }
     }
@@ -227,7 +230,7 @@ function extractHoldingsText(num, docs) {
     }
     // nums = units, price, market value, investment cost, [P/L, P/L%]
     if (nums.length >= 4 && nums[2] > 0 && nums[3] > 0) {
-      out.push({ name: name, market_value: nums[2], investment_cost: nums[3],
+      out.push({ name: name, account_no: lines[i], market_value: nums[2], investment_cost: nums[3],
                  price: nums[1] > 0 ? nums[1] : null });
     }
   }

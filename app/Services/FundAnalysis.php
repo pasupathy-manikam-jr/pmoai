@@ -78,7 +78,8 @@ class FundAnalysis
                 $days = (int) now()->diffInDays(\Illuminate\Support\Carbon::parse($since), true);
                 $context['position']['position first tracked'] = $since." ({$days} days ago)";
             }
-            $context['switch_candidates'] = $this->switchCandidates($fund);
+            $context['switch_candidates']   = $this->switchCandidates($fund);
+            $context['pullback_candidates'] = $this->pullbackCandidates($fund);
         }
 
         return [$fund, $context];
@@ -199,6 +200,29 @@ class FundAnalysis
     }
 
     /**
+     * Brand family for catalog grouping: 'pb' | 'prs' | 'e' (Public e-Series)
+     * | 'public' (regular Public series). Order matters — PB and PRS are
+     * checked before the e-Series test.
+     */
+    public static function family(Fund $fund): string
+    {
+        $name = (string) $fund->name;
+        $code = (string) $fund->code;
+
+        if (preg_match('/^PB /i', $name) || preg_match('/^PB/', $code)) {
+            return 'pb';
+        }
+        if (preg_match('/PRS/i', $name)) {
+            return 'prs';
+        }
+        if (self::isESeries($fund)) {
+            return 'e';
+        }
+
+        return 'public';
+    }
+
+    /**
      * Steadier catalog funds a seller could switch into — deterministic
      * shortlist so the LLM picks FROM real funds. Shariah funds only get
      * Shariah candidates; peaked flyers excluded. e-Series funds can only
@@ -240,6 +264,71 @@ class FundAnalysis
                 '1Y '.($f->return_1y ?? 'na'),
                 '3Y '.($f->return_3y ?? 'na'),
                 '5Y '.($f->return_5y ?? 'na'),
+            ]))->implode("\n");
+    }
+
+    /**
+     * Dip-entry candidates in the same series/Shariah bucket — funds whose
+     * long-term fundamentals stay intact (5Y >= 4) but whose latest captured
+     * price sits furthest below its own captured peak. Complements the
+     * uptrend-only SWITCH CANDIDATES list. Distance is computed from the
+     * fund_prices series already stored (same source as `signals()`), so no
+     * external calls; N+1 across the ~30 same-series funds runs once per
+     * context build (holder view only).
+     */
+    private function pullbackCandidates(Fund $fund): string
+    {
+        $wantE = self::isESeries($fund);
+
+        $candidates = Fund::query()
+            ->whereKeyNot($fund->getKey())
+            ->whereNotNull('return_5y')->where('return_5y', '>=', 4)
+            ->when($fund->shariah, fn ($q) => $q->where('shariah', true))
+            ->get()
+            ->filter(fn ($f) => $f->code && self::isESeries($f) === $wantE);
+
+        $rows = [];
+        foreach ($candidates as $c) {
+            $pts = [];
+            $priceRows = FundPrice::whereRaw('upper(code) = ?', [strtoupper($c->code)])
+                ->orderBy('period')->get();
+            foreach ($priceRows as $row) {
+                for ($d = 1; $d <= 31; $d++) {
+                    $v = $row->{"d{$d}"};
+                    if ($v !== null) {
+                        $pts[] = (float) $v;
+                    }
+                }
+            }
+            if (count($pts) < 2) {
+                continue;
+            }
+            $hi = max($pts);
+            if ($hi <= 0.0) {
+                continue;
+            }
+            $last = end($pts);
+            $rows[] = [
+                'fund'  => $c,
+                'dist'  => ($last - $hi) / $hi * 100,
+                'peak'  => $hi,
+                'last'  => $last,
+            ];
+        }
+
+        usort($rows, fn ($a, $b) => $a['dist'] <=> $b['dist']);
+
+        return collect(array_slice($rows, 0, 6))
+            ->map(fn ($r) => implode(' | ', [
+                $r['fund']->code,
+                $r['fund']->name,
+                $r['fund']->shariah ? 'S' : '-',
+                'risk '.($r['fund']->risk ?? 'na'),
+                '1Y '.($r['fund']->return_1y ?? 'na'),
+                '3Y '.($r['fund']->return_3y ?? 'na'),
+                '5Y '.($r['fund']->return_5y ?? 'na'),
+                'peak Δ '.number_format($r['dist'], 2).'%',
+                'last '.number_format($r['last'], 4).' vs peak '.number_format($r['peak'], 4),
             ]))->implode("\n");
     }
 

@@ -76,8 +76,13 @@ TXT;
   multi-year figures (3Y/5Y/10Y) or structural deterioration — never on
   days or weeks of price movement alone.
 - **Switch candidates** — ONLY when your verdict is SELL or REDUCE: pick 2–3
-  funds STRICTLY from the SWITCH CANDIDATES list below (never invent a fund,
-  never pick from PEER CONTEXT or elsewhere). One line each: fund name + why
+  funds STRICTLY from the SWITCH CANDIDATES or PULLBACK CANDIDATES list below
+  (never invent a fund, never pick from PEER CONTEXT or elsewhere). SWITCH
+  CANDIDATES are steady long-term outperformers (uptrend, may be near peak);
+  PULLBACK CANDIDATES are same-series funds whose fundamentals are intact
+  (5Y >= 4%) but which sit furthest below their own captured peak — flag
+  which list each pick comes from and note the "peak Δ" figure verbatim when
+  citing a pullback pick. One line each: fund name + why
   it suits the user's stated risk/goals, quoting that fund's provided
   1Y/3Y/5Y returns and risk verbatim. Price the switch with PMO's actual
   charge schedule (the user is Mutual Gold tier): fund-to-fund switches of
@@ -209,6 +214,10 @@ TXT;
         if (! empty($context['switch_candidates'])) {
             $parts[] = "SWITCH CANDIDATES (steadier catalog funds — code | name | Shariah | risk | 1Y/3Y/5Y %):\n"
                 .$context['switch_candidates'];
+        }
+        if (! empty($context['pullback_candidates'])) {
+            $parts[] = "PULLBACK CANDIDATES (same-series funds w/ 5Y >= 4 sorted by biggest drop from own captured peak — code | name | Shariah | risk | 1Y/3Y/5Y % | peak Δ | last vs peak):\n"
+                .$context['pullback_candidates'];
         }
         $parts[] = "CAPTURED DAILY PRICE SERIES:\n".($context['trend'] ?? 'not available');
 
