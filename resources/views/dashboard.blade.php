@@ -17,11 +17,13 @@
         // glance. `tv` = TradingView symbol; `url` = human page fallback.
         $indices = [
             ['name' => 'NASDAQ Composite',  'tag' => 'AI / tech · PeAITF',   'tv' => 'NASDAQ:IXIC',    'url' => 'https://www.marketwatch.com/investing/index/comp'],
+            ['name' => 'Dow Jones',         'tag' => 'US market breadth',    'tv' => 'DJ:DJI',         'url' => 'https://www.marketwatch.com/investing/index/djia'],
             ['name' => 'Gold (spot)',       'tag' => 'PeEMAS',               'tv' => 'TVC:GOLD',       'url' => 'https://www.marketwatch.com/investing/future/gc00'],
+            ['name' => 'Brent Crude Oil',   'tag' => 'Malaysia exports · inflation', 'tv' => 'TVC:UKOIL', 'url' => 'https://www.marketwatch.com/investing/future/brentcrude'],
             ['name' => 'Jakarta Composite', 'tag' => 'PINDOSF',              'tv' => 'IDX:COMPOSITE',  'url' => 'https://www.marketwatch.com/investing/index/jakidx?countrycode=id'],
             ['name' => 'Nifty 50 — India',  'tag' => 'PeIIGEF',              'tv' => 'NSE:NIFTY',      'url' => 'https://www.marketwatch.com/investing/index/nifty%2050?countrycode=in'],
             ['name' => 'USD / MYR',         'tag' => 'RM value of ALL foreign funds', 'tv' => 'FX_IDC:USDMYR', 'url' => 'https://www.marketwatch.com/investing/currency/usdmyr'],
-            ['name' => 'FBM KLCI',          'tag' => 'Malaysia base · PRS',  'tv' => 'TVC:KLSE',       'url' => 'https://www.marketwatch.com/investing/index/fbmklci?countrycode=my'],
+            ['name' => 'FBM KLCI',          'tag' => 'Bursa KL · Malaysia base · PRS', 'tv' => 'FTSEMYX:FBMKLCI', 'url' => 'https://www.marketwatch.com/investing/index/fbmklci?countrycode=my'],
         ];
     @endphp
 
@@ -82,7 +84,7 @@
       X-Frame-Options / CSP frame-ancestors and refuses to be framed. Replaced
       with TradingView mini widgets (embeddable, ad-free, live). If a panel
       renders blank, the TradingView symbol is wrong — verify on tradingview.com.
-      Symbols: NASDAQ:IXIC · TVC:GOLD · IDX:COMPOSITE · NSE:NIFTY · FX_IDC:USDMYR · TVC:KLSE
+      Symbols: NASDAQ:IXIC · DJ:DJI · TVC:GOLD · TVC:UKOIL · IDX:COMPOSITE · NSE:NIFTY · FX_IDC:USDMYR · FTSEMYX:FBMKLCI
       Tighter PeAITF proxy if wanted: swap NASDAQ:IXIC → the semis index
       (the review tracks the Philadelphia Semiconductor Index / SOX).
     --}}
