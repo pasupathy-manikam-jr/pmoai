@@ -1,5 +1,5 @@
 <header class="pm-header">
-    <a class="pm-brand" href="{{ route('snapshots.index') }}">pmoai</a>
+    <a class="pm-brand" href="{{ route('snapshots.index') }}">PMFAI</a>
     <nav>
         <a href="{{ route('snapshots.index') }}"
            class="{{ request()->routeIs('snapshots.index') ? 'active' : '' }}">Analyses</a>

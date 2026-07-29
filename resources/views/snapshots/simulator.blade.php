@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'pmoai — what-if simulator')
+@section('title', 'PMFAI — what-if simulator')
 @section('body-class', 'page-show')
 
 @push('head')

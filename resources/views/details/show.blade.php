@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', "pmoai — {$detail->name}")
+@section('title', "PMFAI — {$detail->name}")
 @section('body-class', 'page-detail')
 
 @push('head')

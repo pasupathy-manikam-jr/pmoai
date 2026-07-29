@@ -1,11 +1,11 @@
 @extends('layouts.app')
 
-@section('title', 'PMO AI — Public Mutual fund analysis')
+@section('title', 'PMFAI — Fund analysis')
 @section('body-class', 'page-create')
 
 @section('content')
-    <h1>Public Mutual fund analysis</h1>
-    <p><small>Paste the Public Mutual price page, add your goals/feedback. AI extracts funds, checks current market &amp; geopolitical context, recommends buy/hold/sell. Informational only — not licensed financial advice.</small></p>
+    <h1>Fund analysis</h1>
+    <p><small>Paste the fund price page, add your goals/feedback. AI extracts funds, checks current market &amp; geopolitical context, recommends buy/hold/sell. Informational only — not licensed financial advice.</small></p>
 
     @if ($errors->any())
         <div class="err">{{ $errors->first() }}</div>

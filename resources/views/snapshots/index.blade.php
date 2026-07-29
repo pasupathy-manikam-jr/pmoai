@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'pmoai — analyses')
+@section('title', 'PMFAI — analyses')
 @section('body-class', 'page-index')
 
 @if ($snapshots->whereNotIn('status', ['recommended', 'failed', 'stored'])->isNotEmpty())
@@ -10,7 +10,7 @@
 @endif
 
 @section('content')
-    <h1>pmoai — fund analyses</h1>
+    <h1>PMFAI — fund analyses</h1>
     <p><a class="btn" href="{{ route('snapshots.create') }}">+ New analysis (manual paste)</a>
        &nbsp;<small>or send via the Tampermonkey userscript</small></p>
 

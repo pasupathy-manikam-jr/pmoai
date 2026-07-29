@@ -258,9 +258,39 @@ class SnapshotController extends Controller
         $history = \App\Models\PortfolioSnapshot::orderBy('snap_date')->get();
         $review = \App\Models\PortfolioReview::latest('id')->first();
 
+        // Full transaction ledger (newest first) for the Transactions tab.
+        // Resolve the fund name from the catalog; friendly type label + the
+        // units sign gives buy/sell direction for colouring.
+        $fundNames = $funds->filter(fn ($f) => $f->code)
+            ->mapWithKeys(fn ($f) => [strtoupper($f->code) => $f->name]);
+        $txLabels = [
+            'II' => 'Initial buy', 'AI' => 'Add buy', 'RII' => 'Reinvest',
+            'SI' => 'Switch in', 'SWS' => 'Switch in', 'SWR' => 'Switch out',
+            'RP' => 'Redeem', 'DR' => 'Distribution', 'DP' => 'Distribution',
+        ];
+        $transactions = \App\Models\Transaction::orderByDesc('trans_date')->orderByDesc('id')->get()
+            ->map(fn ($t) => [
+                'date'       => $t->trans_date,
+                'fund_code'  => $t->fund_code,
+                'fund'       => $fundNames[strtoupper($t->fund_code)] ?? $t->fund_code,
+                'type'       => $t->trans_type,
+                'label'      => $txLabels[$t->trans_type] ?? $t->trans_type,
+                'account_no' => $t->account_no,
+                'gross'      => $t->gross,
+                'charge_amt' => $t->charge_amt,
+                'net'        => $t->net,
+                'price'      => $t->price,
+                'units'      => $t->units,
+            ]);
+
+        // Float / pending — submitted, not yet processed (kept out of the
+        // settled ledger). Shown at the top of the Transactions tab.
+        $pending = \App\Models\PendingTransaction::orderByDesc('submitted_at')->get();
+
         return view('snapshots.show', compact(
             'snapshot', 'funds', 'detailMap', 'detailByCode', 'ideas', 'portfolio',
             'alerts', 'history', 'review', 'past', 'prsThisYear', 'prsXirr',
+            'transactions', 'pending',
         ));
     }
 

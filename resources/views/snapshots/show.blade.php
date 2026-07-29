@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', "pmoai — portfolio")
+@section('title', "PMFAI — portfolio")
 @section('body-class', 'page-show')
 
 @push('head')
@@ -38,6 +38,7 @@
                 <button type="button" class="ps-tab active" data-tab="tab-overview">Overview</button>
                 <button type="button" class="ps-tab" data-tab="tab-holdings">My holdings ({{ $portfolio->count() }})</button>
                 <button type="button" class="ps-tab" data-tab="tab-past">Past funds ({{ $past->count() }})</button>
+                <button type="button" class="ps-tab" data-tab="tab-transactions">Transactions ({{ $transactions->count() }})</button>
                 <button type="button" class="ps-tab" data-tab="tab-review">AI review</button>
                 <button type="button" class="ps-tab" data-tab="tab-catalog">Fund catalog ({{ $funds->count() }})</button>
             </div>
@@ -151,6 +152,55 @@
                     @endforeach
                 </table>
                 <p class="ps-sub">Funds you've fully exited, from your statements. "Result" = money out − money in, shown only when the round-trip is fully recorded.</p>
+            </div>
+
+            <div id="tab-transactions" class="ps-tabpane" hidden>
+                @if ($pending->isNotEmpty())
+                    <h3 style="margin:0 0 6px">⏳ Pending — submitted, not yet processed</h3>
+                    <table class="pt-table">
+                        <tr><th>Submitted</th><th>Fund</th><th>Type</th><th>Account</th><th>Amount</th><th>Units</th><th>→ Switch to</th></tr>
+                        @foreach ($pending as $p)
+                            <tr>
+                                <td class="pt-date">{{ $p->submitted_at->format('d M Y H:i') }}</td>
+                                <td>{{ $p->fund_name }} <span class="cat-code">{{ $p->fund_code }}</span></td>
+                                <td title="{{ $p->trans_type }}">
+                                    @php
+                                        $pl = ['SWR' => 'Switch out', 'SWS' => 'Switch in', 'RP' => 'Redeem',
+                                               'AC' => 'Add contribution', 'IC' => 'Initial contribution'][$p->trans_type] ?? $p->trans_type;
+                                    @endphp {{ $pl }}
+                                </td>
+                                <td class="cat-code">{{ $p->account_no }}</td>
+                                <td>{{ $p->amount !== null && (float) $p->amount != 0 ? 'RM '.number_format((float) $p->amount, 2) : '—' }}</td>
+                                <td>{{ $p->units !== null && (float) $p->units != 0 ? number_format((float) $p->units, 2) : '—' }}</td>
+                                <td>{{ $p->switch_to_fund ? $p->switch_to_fund.' ('.$p->switch_to_account.')' : '—' }}</td>
+                            </tr>
+                        @endforeach
+                    </table>
+                    <p class="ps-sub" style="margin:6px 0 18px">From PMO's Float statement — not yet priced/allocated, so excluded from holdings, P/L and XIRR. They drop off here and appear in the settled ledger below once processed.</p>
+                @endif
+
+                @if ($transactions->isEmpty())
+                    <p class="ps-sub">No transactions recorded yet. Download a Statement of Transaction PDF from PMO and run <code>pmoai:ingest-stmt</code> (or drop it in Downloads and ask).</p>
+                @else
+                    <table class="pt-table">
+                        <tr><th>Date</th><th>Fund</th><th>Type</th><th>Account</th><th>Gross</th><th>Charge</th><th>Net</th><th>Price</th><th>Units</th></tr>
+                        @foreach ($transactions as $t)
+                            @php $inflow = (float) $t['units'] >= 0; @endphp
+                            <tr>
+                                <td class="pt-date">{{ $t['date']->format('d M Y') }}</td>
+                                <td>{{ $t['fund'] }} <span class="cat-code">{{ $t['fund_code'] }}</span></td>
+                                <td><span class="{{ $inflow ? 'pos' : 'neg' }}" title="{{ $t['type'] }}">{{ $t['label'] }}</span></td>
+                                <td class="cat-code">{{ $t['account_no'] }}</td>
+                                <td>{{ $t['gross'] !== null ? number_format((float) $t['gross'], 2) : '—' }}</td>
+                                <td>{{ $t['charge_amt'] !== null && (float) $t['charge_amt'] != 0 ? number_format((float) $t['charge_amt'], 2) : '—' }}</td>
+                                <td class="{{ $inflow ? '' : 'neg' }}">{{ $t['net'] !== null ? number_format((float) $t['net'], 2) : '—' }}</td>
+                                <td>{{ $t['price'] !== null ? number_format((float) $t['price'], 4) : '—' }}</td>
+                                <td class="{{ $inflow ? 'pos' : 'neg' }}">{{ number_format((float) $t['units'], 2) }}</td>
+                            </tr>
+                        @endforeach
+                    </table>
+                    <p class="ps-sub">Your full transaction ledger from ingested Statement of Transaction PDFs, newest first. Green = units in (buy / switch-in / reinvest), red = units out (redeem / switch-out). Deduped by transaction reference, so re-ingesting a statement only adds new rows.</p>
+                @endif
             </div>
 
             <div id="tab-review" class="ps-tabpane" hidden>

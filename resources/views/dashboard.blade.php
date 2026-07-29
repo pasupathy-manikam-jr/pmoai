@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'pmoai — Dashboard')
+@section('title', 'PMFAI — Dashboard')
 @section('body-class', 'page-dashboard')
 
 @section('content')
