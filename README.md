@@ -1,4 +1,4 @@
-# PMFAI — Personal Mutual Fund AI
+# PMFAI — Personal Mutual Fund - AI Integrated for analysis
 
 A personal, self-hosted tool for tracking and analysing a Malaysian unit-trust
 portfolio. It captures your own fund data and holdings, keeps a local history,
