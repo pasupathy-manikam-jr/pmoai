@@ -28,9 +28,28 @@
 
 
     @foreach ($fired as $a)
-        <div class="alert-fired">🔔 <b>{{ $a->fund_code }}</b> — {{ $a->label }}
-            <small>(hit {{ number_format((float) $a->fired_price, 4) }} on {{ $a->fired_at->format('Y-m-d') }})</small></div>
+        @php
+            $fn = optional($funds->first(fn ($f) => strtoupper($f->code ?? '') === strtoupper($a->fund_code)))->name ?? $a->fund_code;
+            $dir = $a->condition === 'below' ? 'dropped to' : 'rose to';
+            $lvlTxt = rtrim(rtrim(number_format((float) $a->level, 4), '0'), '.');
+            $watch = $a->condition === 'below' ? 'buy-below' : 'watch-above';
+        @endphp
+        <div class="alert-fired">
+            🔔 <b>{{ $fn }}</b> {{ $dir }} <b>RM{{ number_format((float) $a->fired_price, 4) }}</b>
+            on {{ $a->fired_at->format('d M Y') }} — your {{ $watch }} level of RM{{ $lvlTxt }} was reached.
+            @if ($a->explanation)
+                <div class="alert-exp">{{ $a->explanation }}</div>
+            @endif
+            <details class="alert-raw"><summary>signal detail</summary>{{ $a->label }}</details>
+        </div>
     @endforeach
+    <style>
+        .alert-exp { margin-top: 4px; font-size: 13px; color: #444; }
+        .alert-raw, .trig-raw { margin-top: 3px; font-size: 11px; color: #999; }
+        .alert-raw summary { cursor: pointer; }
+        .trig-plain { font-weight: 600; }
+        .trig-now { color: #888; font-size: 12px; }
+    </style>
 
     @if ($portfolio->isNotEmpty())
         <section class="ps-card">
@@ -49,7 +68,7 @@
                 .pt-subrow .pt-acct { padding-left: 14px; font-variant-numeric: tabular-nums; }
             </style>
             <table class="pt-table">
-                <tr><th>Original</th><th>Run since</th><th>Fund</th><th>Origin</th><th>Invested</th><th>Current value</th><th>P/L (RM)</th><th>P/L (%)</th><th>My return /yr</th><th>Fees paid</th></tr>
+                <tr><th title="First-ever investment in this account (PMO 'Initial Investment on')">First invested</th><th title="When the current position was built (after selling out and restarting)">Held since</th><th>Fund</th><th title="Bought with new money, or funded by switching out of another fund">Funded by</th><th>Invested</th><th>Current value</th><th>Gain/loss (RM)</th><th>Gain/loss (%)</th><th title="Money-weighted annual return (XIRR) from your own transaction history">Annual return</th><th>Fees paid</th></tr>
                 @foreach ($portfolio as $h)
                     @php $pl = $h['value'] - $h['invested']; $x = $h['xirr']; @endphp
                     <tr>
@@ -321,20 +340,25 @@
                             $away = ($cur !== null && (float) $a->level > 0)
                                 ? abs(((float) $cur - (float) $a->level) / (float) $a->level * 100) : null;
                         @endphp
+                        @php
+                            $fnT = optional($funds->first(fn ($f) => strtoupper($f->code ?? '') === strtoupper($a->fund_code)))->name ?? $a->fund_code;
+                            $action = $a->condition === 'below' ? 'Buy if it drops to' : 'Watch if it rises to';
+                        @endphp
                         <details class="trig">
                             <summary>
-                                <span class="alert-chip">{{ $a->fund_code }} {{ $a->condition === 'below' ? '≤' : '≥' }} {{ $lvl }}</span>
-                                <span class="trig-label">{{ $a->label }}</span>
+                                <span class="alert-chip">{{ $fnT }}</span>
+                                <span class="trig-plain">{{ $action }} RM{{ $lvl }}</span>
                                 @if ($curF)
-                                    <span class="trig-now">now {{ $curF }}@if ($away !== null) · {{ number_format($away, 1) }}% away @endif</span>
+                                    <span class="trig-now">now RM{{ $curF }}@if ($away !== null) · {{ number_format($away, 1) }}% away @endif</span>
                                 @endif
                             </summary>
                             @if ($a->explanation)
                                 <p class="trig-exp">{{ $a->explanation }}</p>
                             @endif
+                            <p class="trig-raw">signal: {{ $a->label }}</p>
                         </details>
                     @endforeach
-                    <p class="ps-sub">Checked after every price capture · Mac notification + banner here when hit · click a trigger for the why</p>
+                    <p class="ps-sub">A price level to act on. Checked after every price update; you get a notification and a banner here when reached. Click one for the reasoning.</p>
                 @else
                     <p class="ps-sub">No triggers armed.</p>
                 @endif
