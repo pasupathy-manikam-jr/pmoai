@@ -85,6 +85,12 @@ class IngestStatements extends Command
         }
 
         $this->info("Total new: $totalNew (".Transaction::count().' in store)');
+
+        $reconciled = \App\Models\PendingTransaction::reconcile();
+        if ($reconciled) {
+            $this->info("Reconciled $reconciled pending (float) → settled.");
+        }
+
         return self::SUCCESS;
     }
 }

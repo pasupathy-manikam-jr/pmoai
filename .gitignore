@@ -25,3 +25,12 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Leak-guards: never commit exported data or DB dumps
+*.sql
+*.dump
+*.sqlite
+*.sqlite3
+holdings*.json
+/storage/app/mfr/
+/storage/app/statements/

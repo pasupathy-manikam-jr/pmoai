@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Model;
 class PendingTransaction extends Model
 {
     protected $fillable = [
-        'submitted_at', 'trans_type', 'account_no', 'fund_code', 'fund_name',
+        'scheme', 'submitted_at', 'trans_type', 'account_no', 'fund_code', 'fund_name',
         'contribution_type', 'amount', 'units',
         'switch_to_account', 'switch_to_fund', 'source_pdf', 'captured_at',
     ];
@@ -23,4 +23,26 @@ class PendingTransaction extends Model
         'amount'       => 'decimal:2',
         'units'        => 'decimal:4',
     ];
+
+    /**
+     * Clear pending rows that have since settled. Each PMO account number is
+     * fund-specific, so a settled transaction on the same account on/after the
+     * request was submitted means the float has been processed. Call after any
+     * statement ingest. Returns the number cleared.
+     */
+    public static function reconcile(): int
+    {
+        $cleared = 0;
+        foreach (static::all() as $p) {
+            $settled = Transaction::where('account_no', $p->account_no)
+                ->whereDate('trans_date', '>=', $p->submitted_at->toDateString())
+                ->exists();
+            if ($settled) {
+                $p->delete();
+                $cleared++;
+            }
+        }
+
+        return $cleared;
+    }
 }
