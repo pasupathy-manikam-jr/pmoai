@@ -5,35 +5,34 @@
 
 @section('content')
     <h1>Market indices</h1>
-    <p class="idx-intro">Mini-charts (TradingView), tagged with the holding each drives.
-        <strong>Quotes may lag</strong> — free feeds are delayed (Asian exchanges often
-        end-of-day: e.g. Jakarta shows last close, not the intraday print). Use “open full
-        page ↗” for the live number.</p>
-
     @php
-        // TradingView mini-symbol-overview widgets — actually embeddable
-        // (MarketWatch refuses framing → blank). Symbols aligned to the
-        // portfolio's real exposures so the dashboard reads the book at a
-        // glance. `tv` = TradingView symbol; `url` = human page fallback.
-        $indices = [
-            ['name' => 'NASDAQ Composite',  'tag' => 'AI / tech · PeAITF',   'tv' => 'NASDAQ:IXIC',    'url' => 'https://www.marketwatch.com/investing/index/comp'],
-            ['name' => 'Dow Jones',         'tag' => 'US market breadth',    'tv' => 'DJ:DJI',         'url' => 'https://www.marketwatch.com/investing/index/djia'],
-            ['name' => 'Gold (spot)',       'tag' => 'PeEMAS',               'tv' => 'TVC:GOLD',       'url' => 'https://www.marketwatch.com/investing/future/gc00'],
-            ['name' => 'Brent Crude Oil',   'tag' => 'Malaysia exports · inflation', 'tv' => 'TVC:UKOIL', 'url' => 'https://www.marketwatch.com/investing/future/brentcrude'],
-            ['name' => 'Jakarta Composite', 'tag' => 'PINDOSF',              'tv' => 'IDX:COMPOSITE',  'url' => 'https://www.marketwatch.com/investing/index/jakidx?countrycode=id'],
-            ['name' => 'Nifty 50 — India',  'tag' => 'PeIIGEF',              'tv' => 'NSE:NIFTY',      'url' => 'https://www.marketwatch.com/investing/index/nifty%2050?countrycode=in'],
-            ['name' => 'USD / MYR',         'tag' => 'RM value of ALL foreign funds', 'tv' => 'FX_IDC:USDMYR', 'url' => 'https://www.marketwatch.com/investing/currency/usdmyr'],
-            ['name' => 'FBM KLCI',          'tag' => 'Bursa KL · Malaysia base · PRS', 'tv' => 'FTSEMYX:FBMKLCI', 'url' => 'https://www.marketwatch.com/investing/index/fbmklci?countrycode=my'],
-        ];
+        // Config-driven: symbol (live Yahoo quote via pmoai:fetch-quotes) +
+        // tv (embedded TradingView chart). Live number sits above the chart.
+        $indices = config('quotes.indices', []);
+        $quotes = \App\Models\MarketQuote::all()->keyBy('symbol');
+        $lastFetch = optional($quotes->max('fetched_at'));
     @endphp
+    <p class="idx-intro">Live quotes (Yahoo) above each chart, tagged with the holding each drives.
+        @if ($lastFetch)Updated {{ $lastFetch->diffForHumans() }} — run <code>pmoai:fetch-quotes</code> to refresh.
+        @else No quotes yet — run <code>pmoai:fetch-quotes</code>.@endif
+        The chart below is TradingView (may lag for some Asian exchanges).</p>
 
     <div class="idx-grid">
         @foreach ($indices as $ix)
+            @php $q = $quotes[$ix['symbol']] ?? null; @endphp
             <section class="idx-section">
                 <div class="idx-head">
-                    <h2>{{ $ix['name'] }}</h2>
+                    <h2>{{ $ix['label'] }}</h2>
                     <span class="idx-tag">{{ $ix['tag'] }}</span>
                 </div>
+                @if ($q && $q->price !== null)
+                    @php $up = (float) $q->change_pct >= 0; @endphp
+                    <div class="idx-quote">
+                        <span class="idx-price">{{ number_format((float) $q->price, (float) $q->price < 10 ? 4 : 2) }}</span>
+                        <span class="idx-chg {{ $up ? 'pos' : 'neg' }}">{{ $up ? '▲' : '▼' }} {{ $q->change_pct !== null ? ($up ? '+' : '').$q->change_pct.'%' : '—' }}</span>
+                        <span class="idx-ccy">{{ $q->currency }}</span>
+                    </div>
+                @endif
                 <div class="tradingview-widget-container">
                     <div class="tradingview-widget-container__widget"></div>
                     <script type="text/javascript"
@@ -53,7 +52,7 @@
                         ], JSON_UNESCAPED_SLASHES) !!}
                     </script>
                 </div>
-                <small><a href="{{ $ix['url'] }}" target="_blank" rel="noopener">open full page ↗</a></small>
+                <small><a href="https://finance.yahoo.com/quote/{{ urlencode($ix['symbol']) }}" target="_blank" rel="noopener">open full page ↗</a></small>
             </section>
         @endforeach
     </div>
@@ -74,6 +73,10 @@
         .idx-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
         .idx-section h2 { margin: 0; font-size: 15px; }
         .idx-tag { font-size: 11px; color: #888; white-space: nowrap; }
+        .idx-quote { display: flex; align-items: baseline; gap: 8px; margin: 2px 0 6px; }
+        .idx-price { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+        .idx-chg { font-size: 13px; font-weight: 600; }
+        .idx-ccy { font-size: 11px; color: #aaa; margin-left: auto; }
         .idx-section small { display: block; margin-top: 4px; }
         .idx-section small a { color: #c8102e; text-decoration: none; font-size: 11px; }
         .tradingview-widget-container { min-height: 200px; }
