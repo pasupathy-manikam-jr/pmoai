@@ -95,28 +95,45 @@ class IngestFloat extends Command
     {
         $out = [];
         foreach (preg_split('/\R/', $text) as $line) {
-            if (! preg_match(
-                '/^\s*(\d{2}\/\d{2}\/\d{4})\s+([A-Z]{2,4})\s+(\d{6,12})\s+(.+?)\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})(?:\s+(\d{6,12})\s+(.+?))?\s*$/',
-                $line, $m
-            )) {
+            $r = self::parseUtLine($line);
+            if (! $r) {
                 continue;
             }
-            [, $date, $type, $acct, $fund, $amount, $units, $swAcct, $swFund] = array_pad($m, 9, null);
             $out[] = [
-                'submitted_at'      => $this->date($date),
-                'trans_type'        => $type,
-                'account_no'        => $acct,
-                'fund_name'         => trim($fund),
-                'fund_code'         => $this->codeFor(trim($fund)),
+                'submitted_at'      => $this->date($r['date']),
+                'trans_type'        => $r['type'],
+                'account_no'        => $r['acct'],
+                'fund_name'         => trim($r['fund']),
+                'fund_code'         => $this->codeFor(trim($r['fund'])),
                 'contribution_type' => null,
-                'amount'            => $this->num($amount),
-                'units'             => $this->num($units),
-                'switch_to_account' => $swAcct ?: null,
-                'switch_to_fund'    => $swFund ? trim($swFund) : null,
+                'amount'            => $this->num($r['amount']),
+                'units'             => $this->num($r['units']),
+                'switch_to_account' => $r['swAcct'] ?: null,
+                'switch_to_fund'    => $r['swFund'] ? trim($r['swFund']) : null,
             ];
         }
 
         return $out;
+    }
+
+    /**
+     * Pure regex for one unit-trust float row — captured fields as raw strings
+     * (no DB, no conversion) so the pattern is unit-testable. Null when the
+     * line is not a data row. Switch account + fund are optional.
+     *
+     * @return array{date:string,type:string,acct:string,fund:string,amount:string,units:string,swAcct:?string,swFund:?string}|null
+     */
+    public static function parseUtLine(string $line): ?array
+    {
+        if (! preg_match(
+            '/^\s*(\d{2}\/\d{2}\/\d{4})\s+([A-Z]{2,4})\s+(\d{6,12})\s+(.+?)\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})(?:\s+(\d{6,12})\s+(.+?))?\s*$/',
+            $line, $m
+        )) {
+            return null;
+        }
+        [, $date, $type, $acct, $fund, $amount, $units, $swAcct, $swFund] = array_pad($m, 9, null);
+
+        return compact('date', 'type', 'acct', 'fund', 'amount', 'units', 'swAcct', 'swFund');
     }
 
     /**
@@ -127,28 +144,45 @@ class IngestFloat extends Command
     {
         $out = [];
         foreach (preg_split('/\R/', $text) as $line) {
-            if (! preg_match(
-                '/^\s*(\d{2}\/\d{2}\/\d{4})\s+([A-Z]{2,4})\s+(\d{6,12})\s+(.+?)\s+([A-Z]{2,4})\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s*$/',
-                $line, $m
-            )) {
+            $r = self::parsePrsLine($line);
+            if (! $r) {
                 continue;
             }
-            [, $date, $type, $acct, $fund, $contrib, $amount, $units] = $m;
             $out[] = [
-                'submitted_at'      => $this->date($date),
-                'trans_type'        => $type,
-                'account_no'        => $acct,
-                'fund_name'         => trim($fund),
-                'fund_code'         => $this->codeFor(trim($fund)),
-                'contribution_type' => $contrib,
-                'amount'            => $this->num($amount),
-                'units'             => $this->num($units),
+                'submitted_at'      => $this->date($r['date']),
+                'trans_type'        => $r['type'],
+                'account_no'        => $r['acct'],
+                'fund_name'         => trim($r['fund']),
+                'fund_code'         => $this->codeFor(trim($r['fund'])),
+                'contribution_type' => $r['contrib'],
+                'amount'            => $this->num($r['amount']),
+                'units'             => $this->num($r['units']),
                 'switch_to_account' => null,
                 'switch_to_fund'    => null,
             ];
         }
 
         return $out;
+    }
+
+    /**
+     * Pure regex for one PRS float row — raw captured fields, unit-testable.
+     *
+     * @return array{date:string,type:string,acct:string,fund:string,contrib:string,amount:string,units:string}|null
+     */
+    public static function parsePrsLine(string $line): ?array
+    {
+        // Contribution type is a known code (IND / EPF), NOT any 2-4 letter
+        // word — otherwise a fund name ending in "FUND" is misread as the type.
+        if (! preg_match(
+            '/^\s*(\d{2}\/\d{2}\/\d{4})\s+([A-Z]{2,4})\s+(\d{6,12})\s+(.+?)\s+(IND|EPF|EPFM)\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s*$/',
+            $line, $m
+        )) {
+            return null;
+        }
+        [, $date, $type, $acct, $fund, $contrib, $amount, $units] = $m;
+
+        return compact('date', 'type', 'acct', 'fund', 'contrib', 'amount', 'units');
     }
 
     private function date(string $d): string
