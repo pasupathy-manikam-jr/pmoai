@@ -459,6 +459,27 @@
             </p>
         @endif
 
+        @php $cashPlan = app(\App\Services\CashPlanner::class)->plan(); @endphp
+        @if ($cashPlan['cash'] > 1000 && $cashPlan['candidates'])
+            <div class="stress-box">
+                <span class="stress-h">💰 Deploying your idle e-Cash — RM {{ number_format($cashPlan['cash'], 0) }}</span>
+                <p class="stress-intro">Where that cash helps most, on real PMO rules: cheaper sales charge, a buy level you've set, and room before a fund hits 30% of the book. Not advice — a ranked shortlist.</p>
+                <table class="stress-tbl">
+                    <tr><th>Fund</th><th class="r">Now</th><th class="r">Cost to buy</th><th class="r">Room to 30%</th><th>Flags</th></tr>
+                    @foreach (array_slice($cashPlan['candidates'], 0, 5) as $c)
+                        <tr>
+                            <td>{{ \Illuminate\Support\Str::of($c['name'])->limit(26) }}</td>
+                            <td class="r">{{ number_format($c['weight'], 1) }}%</td>
+                            <td class="r {{ $c['cost_pct'] <= 1 ? 'pos' : '' }}">{{ $c['cost_pct'] }}%</td>
+                            <td class="r">{{ $c['over'] ? '—' : 'RM '.number_format($c['headroom'], 0) }}</td>
+                            <td class="stress-worst">{{ $c['armed'] ? '🔔 buy level set' : '' }}{{ $c['over'] ? '⚠ over 30% — don\'t add' : '' }}{{ $c['is_bond'] ? ' · bond (safer)' : '' }}</td>
+                        </tr>
+                    @endforeach
+                </table>
+                <small class="ps-sub">Ranked cheapest + most room first; funds already over 30% (e-AI Tech) are pushed down — adding worsens concentration. Deploying into gold or a bond costs far less (1% / 0.65%) than equity (3.75%).</small>
+            </div>
+        @endif
+
         @php $stress = app(\App\Services\PortfolioStress::class)->run(); @endphp
         @if ($stress)
             <div class="stress-box">
