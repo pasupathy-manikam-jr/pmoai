@@ -445,6 +445,26 @@
             </style>
         @endif
 
+        @php
+            $exp = app(\App\Services\PortfolioExposure::class);
+            $sectors = $exp->sectors();
+            $overlap = array_values(array_filter($exp->stocks(), fn ($s) => $s['fund_count'] >= 2));
+        @endphp
+        @if ($sectors)
+            <p class="ps-cutoff ps-cutoff-open">
+                🏭 Sector look-through:
+                @foreach (array_slice($sectors, 0, 5) as $s){{ $s['sector'] }} {{ number_format($s['pct'], 0) }}%@unless ($loop->last) · @endunless @endforeach
+                <small>· weighted from each fund's top sectors — Technology leads via your AI + semiconductor funds</small>
+            </p>
+        @endif
+        @if ($overlap)
+            <p class="ps-cutoff ps-cutoff-warn">
+                🔍 Same stock across funds (hidden concentration):
+                @foreach ($overlap as $s)<b>{{ $s['stock'] }}</b> ({{ $s['fund_count'] }} funds, ~RM{{ number_format($s['combined_value'], 0) }})@unless ($loop->last) · @endunless @endforeach
+                <small>· you hold these through more than one fund — single-stock risk the per-fund weights don't show</small>
+            </p>
+        @endif
+
 
             <div class="ps-hero" style="margin-top:2px">
                 <div class="ps-tile ps-tile-main">

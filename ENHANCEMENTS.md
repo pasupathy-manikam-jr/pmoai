@@ -5,7 +5,9 @@ fees, rules, cost basis, and concentration that the provider's UI hides — not
 market-beating stock picks. Enhancements below deepen that visibility and cut
 the manual steps.
 
-Recommended order: **Phase 0 → 1 → 2 → 3/4**.
+**Status (2026-08-03):** Phases 0, 1, 2, 4 ✅ shipped · Phase 3 skipped (reach
+features — not needed for a local, single-user app) · Phase 5 ✅ shipped.
+Phases 6–10 below are the forward roadmap.
 
 ---
 
@@ -71,3 +73,98 @@ Recommended order: **Phase 0 → 1 → 2 → 3/4**.
   (worker + migration checks).
 - **Factsheet trend** — with several months ingested, show volatility / holdings
   drift over time.
+
+---
+
+## Phase 5 — portfolio-aware market view ✅ (shipped 2026-08-03)
+
+- **Indices derived from real holdings** — parse each fund's captured
+  Geographical Breakdown, weight each country by RM value, and show the markets
+  the portfolio is *actually* in (surfaced Taiwan/Korea/Netherlands, which the
+  old hand-picked list missed). Gold fund → gold price; always adds USD/MYR +
+  home KLCI.
+- **Own daily index history in Postgres** — `market_quote_days`, backfilled from
+  Yahoo and accrued on every poll; independent of whatever TradingView will
+  chart. Dashboard sparklines with X (dates) + Y (min/max) axes.
+- **Per-index fund attribution** — each card lists which of your funds drive it
+  and by how much.
+
+---
+
+## Phase 6 — hidden-exposure analytics (the next visibility layer)
+
+The geography work proved the pattern; apply it to the other captured blocks.
+
+- **Sector exposure** — aggregate each fund's Top-5 Sectors by RM (you're heavily
+  Technology; quantify it) → a portfolio sector breakdown + a sector-index tie-in.
+- **Stock overlap / look-through** — the same stock (NVIDIA, ASML, Alphabet)
+  sits in multiple funds. Roll top holdings up across funds → your true
+  single-stock concentration, which fund-level weights hide.
+- **Factsheet fx/geo parser fix** — teach `MfrParser` the e-Series/foreign
+  layout so `fx_exposure`/`geo_foreign` populate for held funds; upgrades the
+  currency panel from estimate to real and feeds the above from a second source.
+- **Risk-adjusted view** — pair each fund's return with its volatility factor
+  (already captured) → a simple return-per-unit-of-risk ranking.
+
+---
+
+## Phase 7 — decision support & simulation
+
+- **Whole-portfolio rebalance simulator** — beyond the single-switch tool: set a
+  target allocation, get the exact set of switches/redemptions, total fees, and
+  the tax/charge cost to get there.
+- **Stress test** — "US tech −20% / gold −10% / ringgit +5%" → projected
+  portfolio value and which funds hurt most, using real geo + currency exposure.
+- **PRS optimiser** — track the RM3,000/yr relief across years, warn on
+  over-contribution (done) and suggest the tax-optimal timing/fund.
+- **Cash deployment planner** — given the idle e-Cash, rank where deploying it
+  (fees + buy-low triggers + concentration limits) does the most good.
+
+---
+
+## Phase 8 — history, attribution & benchmarking
+
+- **Full per-fund NAV history** — a real chart (not just a sparkline) from the
+  stored price history, with your buy/sell markers overlaid.
+- **Return attribution** — split portfolio growth into contributions vs market
+  gain vs fees, over time.
+- **Benchmark comparison** — your money-weighted return vs KLCI / a blended
+  benchmark of your actual exposures.
+- **Income view** — distribution (RII/DP) history + a forward income estimate
+  once non-PRS distributions are captured.
+- **Exposure-over-time** — how your country/sector/currency mix drifted as you
+  switched funds.
+
+---
+
+## Phase 9 — trust, testing & self-checks
+
+- **Reconciliation guard** — auto-compare the app's total against the latest
+  statement total and flag any drift (would have caught the month-end overwrite).
+- **Verdict-accuracy tracker** — persist the backtest over time; show whether the
+  AI's calls are getting better and weight advice by its hit rate.
+- **Wider test coverage** — `IngestStatements` (extract-to-static like the float
+  parser), `PortfolioIndices`, the simulator math (port the JS to a testable
+  service or add a JS test runner).
+- **Data-freshness monitor** — warn when prices/holdings are stale, before you
+  act on old numbers.
+
+---
+
+## Phase 10 — knowledge & context
+
+- **Per-fund research notes** — your own annotations, kept with the fund.
+- **Macro calendar** — FOMC / BNM / key earnings dates for your holdings, so a
+  trigger is read against what's coming.
+- **News / sentiment per holding** — headlines for the top stocks you hold
+  through funds, cited and dated.
+- **Backup & restore** — one-command export of the whole local dataset.
+
+---
+
+## Beyond
+
+- Multi-portfolio / household view (spouse + kids' PRS).
+- A second provider's funds (generalise the parsers).
+- Local LLM fine-tune on your own captured factsheets for cheaper, private
+  analysis.
