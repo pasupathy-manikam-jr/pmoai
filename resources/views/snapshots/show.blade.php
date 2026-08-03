@@ -273,6 +273,30 @@
                     <button type="submit" class="btn">{{ $review && $review->status === 'done' ? 'Re-run portfolio review' : 'Run portfolio review' }}</button>
                 </form>
             @endif
+
+            @if ($backtest->isNotEmpty())
+                @php $hits = $backtest->whereNotNull('correct')->where('correct', true)->count(); $scored = $backtest->whereNotNull('correct')->count(); @endphp
+                <h3 style="margin:18px 0 4px">Verdict scorecard <small style="font-weight:400;color:#888">— did past calls move the right way? {{ $hits }}/{{ $scored }} right</small></h3>
+                <table class="pt-table">
+                    <tr><th>Fund</th><th>Call</th><th>On</th><th>Price then → now</th><th>Since</th><th>Call worked?</th></tr>
+                    @foreach ($backtest as $b)
+                        <tr>
+                            <td>{{ \Illuminate\Support\Str::of($b['name'])->after('PUBLIC ')->limit(30) }}</td>
+                            <td><span class="{{ $b['bull'] ? 'pos' : 'neg' }}">{{ $b['bull'] ? 'keep/buy' : 'sell/reduce' }}</span></td>
+                            <td class="pt-date">{{ \Illuminate\Support\Carbon::parse($b['at'])->format('d M') }}</td>
+                            <td>{{ number_format($b['then'], 4) }} → {{ number_format($b['now'], 4) }}</td>
+                            <td class="{{ $b['pct'] >= 0 ? 'pos' : 'neg' }}">{{ $b['pct'] >= 0 ? '+' : '' }}{{ number_format($b['pct'], 1) }}%</td>
+                            <td>
+                                @if ($b['correct'] === null) <span title="Price barely moved">≈ flat</span>
+                                @elseif ($b['correct']) <span class="pos">✓ right</span>
+                                @else <span class="neg">✗ wrong</span>
+                                @endif
+                            </td>
+                        </tr>
+                    @endforeach
+                </table>
+                <p class="ps-sub">A "keep/buy" call is right if the price rose since; "sell/reduce" is right if it fell. Directional only — measures whether the call read the move, not the size. Re-analyze a fund to refresh its call.</p>
+            @endif
             </div>
 
             <div id="tab-overview" class="ps-tabpane">

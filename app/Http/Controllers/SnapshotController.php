@@ -258,6 +258,39 @@ class SnapshotController extends Controller
         $history = \App\Models\PortfolioSnapshot::orderBy('snap_date')->get();
         $review = \App\Models\PortfolioReview::latest('id')->first();
 
+        // Verdict backtest: for each held fund's last AI call, did the price
+        // move the way the verdict implied? Bullish (buy/keep) wants up;
+        // bearish (reduce/sell) wants down. Uses captured price history.
+        $analysis = app(\App\Services\FundAnalysis::class);
+        $backtest = FundDetail::whereRaw("payload->'position'->>'current_value' is not null")
+            ->whereRaw("payload->'ai'->>'text' is not null")
+            ->get()
+            ->map(function ($d) use ($analysis) {
+                [$code, $hist, $fund] = $analysis->resolve($d);
+                $at = $d->payload['ai']['at'] ?? null;
+                if (! $at || $hist->isEmpty()
+                    || ! preg_match('/\b(BUY|KEEP|HOLD|ACCUMULATE|REDUCE|TRIM|SELL|AVOID)\b/i', $d->payload['ai']['text'], $m)) {
+                    return null;
+                }
+                $verdict = strtoupper($m[1]);
+                $atDate = substr((string) $at, 0, 10);
+                $then = optional($hist->filter(fn ($p) => $p['date'] <= $atDate)->last())['price']
+                    ?? $hist->first()['price'];
+                $now = $hist->last()['price'];
+                $pct = $then > 0 ? ($now - $then) / $then * 100 : 0.0;
+                $bull = in_array($verdict, ['BUY', 'KEEP', 'HOLD', 'ACCUMULATE']);
+                $correct = abs($pct) < 1 ? null : ($bull ? $pct > 0 : $pct < 0);
+
+                return [
+                    'name' => $fund?->name ?? $d->name, 'verdict' => $verdict,
+                    'at' => $atDate, 'then' => (float) $then, 'now' => (float) $now,
+                    'pct' => $pct, 'bull' => $bull, 'correct' => $correct,
+                ];
+            })
+            ->filter()
+            ->sortByDesc('at')
+            ->values();
+
         // Full transaction ledger (newest first) for the Transactions tab.
         // Resolve the fund name from the catalog; friendly type label + the
         // units sign gives buy/sell direction for colouring.
@@ -290,7 +323,7 @@ class SnapshotController extends Controller
         return view('snapshots.show', compact(
             'snapshot', 'funds', 'detailMap', 'detailByCode', 'ideas', 'portfolio',
             'alerts', 'history', 'review', 'past', 'prsThisYear', 'prsXirr',
-            'transactions', 'pending',
+            'transactions', 'pending', 'backtest',
         ));
     }
 
