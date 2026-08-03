@@ -20,10 +20,16 @@ class AlertCheck
         $fired = [];
 
         foreach (Alert::where('active', true)->whereNull('fired_at')->get() as $alert) {
-            $price = Fund::whereRaw('upper(code) = ?', [strtoupper($alert->fund_code)])
-                ->value('unit_price')
-                ?? \App\Models\FundPrice::whereRaw('upper(code) = ?', [strtoupper($alert->fund_code)])
-                    ->orderByDesc('period')->value('price');
+            // Index/FX/commodity alert → evaluate against the latest quote;
+            // otherwise a fund alert → evaluate against the fund's NAV.
+            if ($alert->market_symbol) {
+                $price = \App\Models\MarketQuote::where('symbol', $alert->market_symbol)->value('price');
+            } else {
+                $price = Fund::whereRaw('upper(code) = ?', [strtoupper($alert->fund_code)])
+                    ->value('unit_price')
+                    ?? \App\Models\FundPrice::whereRaw('upper(code) = ?', [strtoupper($alert->fund_code)])
+                        ->orderByDesc('period')->value('price');
+            }
             if ($price === null) {
                 continue;
             }
@@ -46,9 +52,11 @@ class AlertCheck
 
     private function notify(Alert $alert, float $price): void
     {
-        $title = 'pmoai trigger: '.$alert->fund_code;
-        $body = $alert->label.' — price '.number_format($price, 4)
-            .' ('.$alert->condition.' '.number_format((float) $alert->level, 4).')';
+        $who = $alert->fund_code ?: $alert->market_symbol;
+        $dp = $price < 100 ? 4 : 2;   // fund NAVs need 4dp; index levels 2dp
+        $title = 'pmoai trigger: '.$who;
+        $body = $alert->label.' — '.number_format($price, $dp)
+            .' ('.$alert->condition.' '.number_format((float) $alert->level, $dp).')';
 
         // macOS notification; fire-and-forget, never let it break ingest.
         try {

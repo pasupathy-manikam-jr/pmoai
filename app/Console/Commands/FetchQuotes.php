@@ -46,6 +46,13 @@ class FetchQuotes extends Command
         }
 
         $this->info(count($quotes).' of '.count($symbols).' quotes updated.');
+
+        // New quotes in → evaluate index/market triggers.
+        $fired = app(\App\Services\AlertCheck::class)->run();
+        if ($fired) {
+            $this->warn(count($fired).' alert(s) fired: '.collect($fired)->map->label->implode(', '));
+        }
+
         return self::SUCCESS;
     }
 }

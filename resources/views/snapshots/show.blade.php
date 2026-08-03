@@ -29,14 +29,19 @@
 
     @foreach ($fired as $a)
         @php
-            $fn = optional($funds->first(fn ($f) => strtoupper($f->code ?? '') === strtoupper($a->fund_code)))->name ?? $a->fund_code;
+            $isIdx = (bool) $a->market_symbol;
+            $fn = $isIdx
+                ? (collect(config('quotes.indices'))->firstWhere('symbol', $a->market_symbol)['label'] ?? $a->market_symbol)
+                : (optional($funds->first(fn ($f) => strtoupper($f->code ?? '') === strtoupper($a->fund_code)))->name ?? $a->fund_code);
+            $dp = $isIdx ? 2 : 4;
+            $unit = $isIdx ? '' : 'RM';
             $dir = $a->condition === 'below' ? 'dropped to' : 'rose to';
-            $lvlTxt = rtrim(rtrim(number_format((float) $a->level, 4), '0'), '.');
-            $watch = $a->condition === 'below' ? 'buy-below' : 'watch-above';
+            $lvlTxt = rtrim(rtrim(number_format((float) $a->level, $dp), '0'), '.');
+            $watch = $a->condition === 'below' ? 'watch-below' : 'watch-above';
         @endphp
         <div class="alert-fired">
-            🔔 <b>{{ $fn }}</b> {{ $dir }} <b>RM{{ number_format((float) $a->fired_price, 4) }}</b>
-            on {{ $a->fired_at->format('d M Y') }} — your {{ $watch }} level of RM{{ $lvlTxt }} was reached.
+            🔔 <b>{{ $fn }}</b> {{ $dir }} <b>{{ $unit }}{{ number_format((float) $a->fired_price, $dp) }}</b>
+            on {{ $a->fired_at->format('d M Y') }} — your {{ $watch }} level of {{ $unit }}{{ $lvlTxt }} was reached.
             @if ($a->explanation)
                 <div class="alert-exp">{{ $a->explanation }}</div>
             @endif
@@ -334,22 +339,27 @@
                 @if ($armed->isNotEmpty())
                     @foreach ($armed as $a)
                         @php
-                            $cur = \App\Models\Fund::whereRaw('upper(code)=?', [strtoupper($a->fund_code)])->value('unit_price');
-                            $lvl = rtrim(rtrim(number_format((float) $a->level, 4), '0'), '.');
-                            $curF = $cur !== null ? rtrim(rtrim(number_format((float) $cur, 4), '0'), '.') : null;
+                            $isIdx = (bool) $a->market_symbol;
+                            $dp = $isIdx ? 2 : 4;
+                            $unit = $isIdx ? '' : 'RM';
+                            $cur = $isIdx
+                                ? \App\Models\MarketQuote::where('symbol', $a->market_symbol)->value('price')
+                                : \App\Models\Fund::whereRaw('upper(code)=?', [strtoupper($a->fund_code)])->value('unit_price');
+                            $lvl = rtrim(rtrim(number_format((float) $a->level, $dp), '0'), '.');
+                            $curF = $cur !== null ? rtrim(rtrim(number_format((float) $cur, $dp), '0'), '.') : null;
                             $away = ($cur !== null && (float) $a->level > 0)
                                 ? abs(((float) $cur - (float) $a->level) / (float) $a->level * 100) : null;
-                        @endphp
-                        @php
-                            $fnT = optional($funds->first(fn ($f) => strtoupper($f->code ?? '') === strtoupper($a->fund_code)))->name ?? $a->fund_code;
-                            $action = $a->condition === 'below' ? 'Buy if it drops to' : 'Watch if it rises to';
+                            $fnT = $isIdx
+                                ? (collect(config('quotes.indices'))->firstWhere('symbol', $a->market_symbol)['label'] ?? $a->market_symbol)
+                                : (optional($funds->first(fn ($f) => strtoupper($f->code ?? '') === strtoupper($a->fund_code)))->name ?? $a->fund_code);
+                            $action = $a->condition === 'below' ? ($isIdx ? 'Alert if it drops to' : 'Buy if it drops to') : 'Watch if it rises to';
                         @endphp
                         <details class="trig">
                             <summary>
                                 <span class="alert-chip">{{ $fnT }}</span>
-                                <span class="trig-plain">{{ $action }} RM{{ $lvl }}</span>
+                                <span class="trig-plain">{{ $action }} {{ $unit }}{{ $lvl }}</span>
                                 @if ($curF)
-                                    <span class="trig-now">now RM{{ $curF }}@if ($away !== null) · {{ number_format($away, 1) }}% away @endif</span>
+                                    <span class="trig-now">now {{ $unit }}{{ $curF }}@if ($away !== null) · {{ number_format($away, 1) }}% away @endif</span>
                                 @endif
                             </summary>
                             @if ($a->explanation)
