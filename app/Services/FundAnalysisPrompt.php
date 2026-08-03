@@ -19,6 +19,8 @@ words: XIRR → "your actual yearly return"; redeem → "sell for cash"; switch 
 "move money to another fund"; volatility → "how much the price swings". Keep the
 one-word verdict (KEEP / BUY / REDUCE / SELL) but follow it with a short plain
 sentence of what it means for the reader. Short sentences, no bare acronyms.
+NEVER use the phrase "buy the dip" — say plainly "the price is below its recent
+range" instead.
 
 ABSOLUTE RULES — violating any is a failure:
 1. NEVER state, estimate, characterise, or imply a metric that is not present

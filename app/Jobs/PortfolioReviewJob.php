@@ -118,6 +118,8 @@ WRITE IN PLAIN ENGLISH FOR A NON-EXPERT. No unexplained jargon or bare acronyms.
   or "it has reached RM X, the level to sell some", NEVER "trigger armed/fired".
 - Spell out any metric the first time: XIRR → "your actual yearly return (XIRR)";
   redeem → "sell for cash"; switch → "move money between funds".
+- NEVER use the phrase "buy the dip" (or "buy-the-dip"). Say plainly what you
+  mean, e.g. "the price is below its recent range".
 - Short sentences. If a reader would need a finance dictionary, rewrite it. You have
 WebSearch/WebFetch: run 2-4 targeted searches on the portfolio's dominant
 exposures (global tech, gold, Indonesia, Asia ex-Japan, Malaysia) and cite every

@@ -588,8 +588,8 @@
                 </select>
                 <select id="f-idea">
                     <option value="">Screen: all</option>
-                    <option value="dip">🔵 Buy the dip (quality, down now)</option>
-                    <option value="steady">🟢 Buy candidates (steady)</option>
+                    <option value="dip">🔵 Quality, down now</option>
+                    <option value="steady">🟢 Steady record</option>
                     <option value="extended">🟠 Extended (ran up)</option>
                     <option value="weak">🔴 Weak record</option>
                     <option value="held">★ My holdings</option>

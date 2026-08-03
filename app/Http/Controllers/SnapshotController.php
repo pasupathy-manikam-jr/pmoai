@@ -115,7 +115,7 @@ class SnapshotController extends Controller
             if (($r3 !== null && $r3 < 0) || ($r5 !== null && $r5 < 0)) {
                 return 'weak';
             }
-            // Buy-the-dip: proven multi-year compounder having a down year —
+            // Quality-down-now: proven multi-year compounder having a down year —
             // low price on a healthy engine, not a chronic decliner.
             $ytd = $f->return_ytd !== null ? (float) $f->return_ytd : null;
             if ($r5 !== null && $r5 >= 4 && $r3 !== null && $r3 >= 3

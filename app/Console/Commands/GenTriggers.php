@@ -44,7 +44,7 @@ class GenTriggers extends Command
             $short = trim(preg_replace('/^PUBLIC\s+/i', '', $name));
 
             $made += $this->arm($code, 'below', $lo,
-                "{$short}: below captured low ({$lo}) — buy-the-dip / pullback level");
+                "{$short}: below captured low ({$lo}) — pullback / lower-price level");
             $made += $this->arm($code, 'above', $hi,
                 "{$short}: above captured high ({$hi}) — breakout / recovery level");
         }

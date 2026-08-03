@@ -5,9 +5,11 @@ fees, rules, cost basis, and concentration that the provider's UI hides — not
 market-beating stock picks. Enhancements below deepen that visibility and cut
 the manual steps.
 
-**Status (2026-08-03):** Phases 0, 1, 2, 4 ✅ shipped · Phase 3 skipped (reach
-features — not needed for a local, single-user app) · Phase 5 ✅ shipped.
-Phases 6–10 below are the forward roadmap.
+**Status (2026-08-03):** Phases 0, 1, 2, 4, 5 ✅ shipped · Phase 3 skipped (reach
+features — not needed for a local, single-user app) · Phase 6 🚧 in progress
+(sector look-through + stock overlap shipped; fx parser + risk-adjusted left) ·
+**Data resilience** shipped (Yahoo query1→query2 host failover + Twelve Data
+fallback for USD/MYR + gold). Phases 7–10 are the forward roadmap.
 
 ---
 
@@ -91,15 +93,17 @@ Phases 6–10 below are the forward roadmap.
 
 ---
 
-## Phase 6 — hidden-exposure analytics (the next visibility layer)
+## Phase 6 — hidden-exposure analytics (the next visibility layer) 🚧
 
 The geography work proved the pattern; apply it to the other captured blocks.
 
-- **Sector exposure** — aggregate each fund's Top-5 Sectors by RM (you're heavily
-  Technology; quantify it) → a portfolio sector breakdown + a sector-index tie-in.
-- **Stock overlap / look-through** — the same stock (NVIDIA, ASML, Alphabet)
-  sits in multiple funds. Roll top holdings up across funds → your true
-  single-stock concentration, which fund-level weights hide.
+- ✅ **Sector exposure** — aggregates each fund's Top-5 Sectors by RM into a
+  portfolio sector look-through (Technology leads via the AI + semis funds).
+  `PortfolioExposure::sectors()`, panel on the Overview.
+- ✅ **Stock overlap / look-through** — rolls Top-5 holdings up across funds and
+  flags any stock held through >1 fund (found NVIDIA in 2 funds ~RM230k, SK Hynix
+  in 2 ~RM219k) — real single-stock concentration the fund weights hide.
+  `PortfolioExposure::stocks()`.
 - **Factsheet fx/geo parser fix** — teach `MfrParser` the e-Series/foreign
   layout so `fx_exposure`/`geo_foreign` populate for held funds; upgrades the
   currency panel from estimate to real and feeds the above from a second source.
@@ -139,6 +143,12 @@ The geography work proved the pattern; apply it to the other captured blocks.
 
 ## Phase 9 — trust, testing & self-checks
 
+- ✅ **Multi-source quote resilience** — Yahoo `query1`→`query2` host failover,
+  then a **Twelve Data** fallback (config-gated) for USD/MYR + gold. A single
+  host hiccup no longer blanks the dashboard; a full Yahoo outage still delivers
+  the two most critical quotes. Indices stay Yahoo-only (Twelve Data's free tier
+  excludes them). Next: use the second source to *cross-check* Yahoo and flag
+  disagreements > X%.
 - **Reconciliation guard** — auto-compare the app's total against the latest
   statement total and flag any drift (would have caught the month-end overwrite).
 - **Verdict-accuracy tracker** — persist the backtest over time; show whether the
