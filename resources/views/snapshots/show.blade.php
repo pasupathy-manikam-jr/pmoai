@@ -458,6 +458,30 @@
                 <small>· each fund's return ÷ its PMO factsheet volatility — higher = more return for the price swings (money-market excluded)</small>
             </p>
         @endif
+
+        @php $stress = app(\App\Services\PortfolioStress::class)->run(); @endphp
+        @if ($stress)
+            <div class="stress-box">
+                <span class="stress-h">🎯 Stress test — projected hit if…</span>
+                <table class="stress-tbl">
+                    @foreach ($stress as $s)
+                        <tr>
+                            <td>{{ $s['label'] }}</td>
+                            <td class="{{ $s['delta'] >= 0 ? 'pos' : 'neg' }}">{{ $s['delta'] >= 0 ? '+' : '−' }}RM {{ number_format(abs($s['delta']), 0) }} ({{ number_format($s['pct'], 1) }}%)</td>
+                            <td class="stress-worst">@if ($s['worst'])worst: {{ \Illuminate\Support\Str::of($s['worst']['name'])->after('e-')->limit(18) }} −RM{{ number_format(abs($s['worst']['delta']), 0) }}@endif</td>
+                        </tr>
+                    @endforeach
+                </table>
+                <small class="ps-sub">Your real captured PMO geography × the shock — not a forecast. Shows where a move actually lands in your book.</small>
+            </div>
+            <style>
+                .stress-box { border: 1px solid #eee; border-radius: 6px; padding: 8px 10px; margin: 6px 0; }
+                .stress-h { font-size: 12px; font-weight: 600; color: #444; }
+                .stress-tbl { width: 100%; border-collapse: collapse; font-size: 12px; margin: 4px 0; }
+                .stress-tbl td { padding: 3px 6px; border-bottom: 1px solid #f2f2f2; }
+                .stress-worst { color: #999; text-align: right; }
+            </style>
+        @endif
         @if ($sectors)
             <p class="ps-cutoff ps-cutoff-open">
                 🏭 Sector look-through:

@@ -119,6 +119,31 @@ class PortfolioIndices
         return array_column($this->derive(), 'symbol');
     }
 
+    /**
+     * Per held fund: name, RM value, its captured geography {country: pct}, and
+     * a gold flag. The raw material for the stress test. Built from the same
+     * captured PMO factsheet geography the dashboard uses.
+     *
+     * @return array<int, array{name:string, value:float, geo:array<string,float>, gold:bool}>
+     */
+    public function fundGeo(): array
+    {
+        $out = [];
+        foreach (FundDetail::whereRaw("payload->'position'->>'current_value' is not null")->get() as $d) {
+            $val = (float) $d->payload['position']['current_value'];
+            $name = trim((string) preg_replace('/^PUBLIC\s+/i', '', $d->name));
+            if (preg_match('/EMAS|GOLD/i', $d->name)) {
+                $out[] = ['name' => $name, 'value' => $val, 'geo' => [], 'gold' => true];
+
+                continue;
+            }
+            $geo = $this->parseGeo($d->payload['allocation'] ?? '') ?: $this->heuristic($d->name);
+            $out[] = ['name' => $name, 'value' => $val, 'geo' => $geo, 'gold' => false];
+        }
+
+        return $out;
+    }
+
     /** Short fund label — drop the "PUBLIC " prefix. */
     private function short(string $name): string
     {
