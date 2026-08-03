@@ -106,6 +106,10 @@ class PortfolioIndices
         $out['MYR=X'] = ['symbol' => 'MYR=X', 'tv' => 'FX_IDC:USDMYR', 'label' => 'USD / MYR',
             'tag' => 'RM value of every foreign fund',
             'funds' => $this->rankFunds(array_map(fn ($n, $v) => ['name' => $n, 'rm' => $v], array_keys($foreignFunds), $foreignFunds))];
+        // Macro context (no direct holding): Malaysia is a net oil exporter, so
+        // crude drives the ringgit, inflation and fuel subsidies.
+        $out['BZ=F'] = ['symbol' => 'BZ=F', 'tv' => 'TVC:UKOIL', 'label' => 'Brent Crude Oil',
+            'tag' => 'Malaysia oil economy · ringgit / inflation driver', 'funds' => []];
         $out['^KLSE'] = ['symbol' => '^KLSE', 'tv' => 'FTSEMYX:FBMKLCI', 'label' => 'FBM KLCI',
             'tag' => 'Malaysia home · PRS',
             'funds' => $this->rankFunds(array_map(fn ($n, $v) => ['name' => $n, 'rm' => $v], array_keys($homeFunds), $homeFunds))];
