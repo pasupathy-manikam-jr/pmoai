@@ -350,6 +350,35 @@
             <small>· top: @foreach ($conc->take(4) as $c){{ $shortN($c['name']) }} {{ number_format($c['w'], 0) }}%@unless ($loop->last) · @endunless @endforeach</small>
         </p>
 
+        @php
+            // Currency exposure — ESTIMATED from each fund's geography (held
+            // e-Series/foreign funds don't carry a factsheet fx table). The RM
+            // value of a foreign fund moves with its underlying currency, so
+            // USD/MYR etc. swing your returns even when the fund is flat.
+            $ccyOf = function ($name) {
+                $n = strtoupper($name);
+                if (str_contains($n, 'INDONESIA')) return 'IDR';
+                if (str_contains($n, 'INDIA')) return 'INR';
+                if (preg_match('/GREATER CHINA|CHINA/', $n)) return 'CNY';
+                if (preg_match('/EMAS|GOLD|ARTIFICIAL|INTELLIGENCE|U\.?S\.?|AMERICA|WORLDWIDE|HEALTHCARE-GLOBAL/', $n)) return 'USD';
+                if (preg_match('/CASH|MONEY MARKET|PRS|MALAYSIA|SUKUK|ISLAMIC INCOME|\bBOND\b/', $n)) return 'MYR';
+                if (preg_match('/ASIA|PACIFIC|FAR-EAST|ASEAN|VIETNAM|SINGAPORE|JAPAN|KOREA/', $n)) return 'Asia (mixed)';
+                return 'USD';   // foreign default
+            };
+            $ccy = collect($portfolio)->groupBy(fn ($h) => $ccyOf($h['name']))
+                ->map(fn ($g) => $g->sum('value'))
+                ->sortDesc();
+            $ccyTot = $ccy->sum() ?: 1;
+            $foreignPct = 100 - ($ccy['MYR'] ?? 0) / $ccyTot * 100;
+        @endphp
+        <p class="ps-cutoff {{ $foreignPct >= 60 ? 'ps-cutoff-warn' : 'ps-cutoff-open' }}">
+            💱 Currency exposure (estimated): ~{{ number_format($foreignPct, 0) }}% of the book is in foreign currency — the ringgit moving swings your RM returns.
+            <small>·
+                @foreach ($ccy as $code => $val){{ $code }} {{ number_format($val / $ccyTot * 100, 0) }}%@unless ($loop->last) · @endunless @endforeach
+                · USD/MYR is live on the Dashboard
+            </small>
+        </p>
+
 
             <div class="ps-hero" style="margin-top:2px">
                 <div class="ps-tile ps-tile-main">

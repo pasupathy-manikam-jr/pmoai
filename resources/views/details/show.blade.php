@@ -193,8 +193,13 @@
         </script>
     </section>
 
-    <section id="ai-chat" class="fd-card fd-chat">
-        <p class="fd-eyebrow">Ask about this fund</p>
+    @php
+        $chatN = count($p['chat'] ?? []);
+        $askDate = ! empty($p['ai']['at']) ? \Illuminate\Support\Carbon::parse($p['ai']['at'])->format('d M Y, H:i') : null;
+        $sumMeta = trim(($chatN ? "· {$chatN} Q&A " : '').($askDate ? "· analysis {$askDate}" : ''));
+    @endphp
+    <details id="ai-chat" class="fd-card fd-chat" {{ (($p['chat_status'] ?? null) === 'running' || ! empty($p['chat_error'])) ? 'open' : '' }}>
+        <summary class="fd-eyebrow">Ask about this fund <span class="fd-sum-meta">{{ $sumMeta }}</span></summary>
 
         @if (! empty($p['chat']))
             <div class="fd-chat-log">
@@ -223,7 +228,7 @@
             </form>
             <small>Answers use this fund's data{{ config('ai.llm_provider') === 'claude-cli' ? ' + live web (sources cited)' : '' }}. Educational only.</small>
         @endif
-    </section>
+    </details>
 
     @if ($priceHistory->count() >= 2)
         @php
