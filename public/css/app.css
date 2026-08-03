@@ -365,3 +365,41 @@ small{color:#666}
 .page-dashboard .idx-section h2{margin:0 0 8px;font-size:1.05rem}
 .page-dashboard .idx-frame{display:block;width:100%;height:420px;border:1px solid #e5e5e5;border-radius:8px;background:#fafafa}
 .page-dashboard .idx-section small{display:block;margin-top:6px}
+
+/* ── Global component polish (applies to every page) ───────────────── */
+/* Buttons: one clean primary everywhere (not just .page-index/.page-show) */
+.btn{display:inline-block;padding:9px 18px;border:0;border-radius:8px;
+  background:var(--crimson);color:#fff;font:600 .88rem system-ui,sans-serif;
+  cursor:pointer;text-decoration:none;line-height:1.2;transition:background .12s}
+.btn:hover{background:#a50d26}
+.btn-ghost{background:#fff;color:var(--muted);border:1px solid var(--line)}
+.btn-ghost:hover{background:#f2f2ee;color:var(--ink)}
+
+/* Headings */
+h1{font:800 1.5rem/1.15 'Archivo',system-ui,sans-serif;letter-spacing:-.01em;margin:0 0 6px}
+h2{font:700 1.05rem 'Archivo',system-ui,sans-serif;margin:0 0 8px}
+h3{font:700 .95rem 'Archivo',system-ui,sans-serif;margin:14px 0 6px}
+.ps-sub{color:var(--muted);font-size:.82rem;line-height:1.5}
+
+/* Tables: give bare tables (simulator, details, catalog) the clean look */
+table{border-collapse:collapse}
+table th,table td{padding:8px 12px;text-align:left;font-size:.86rem}
+table thead th{font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;
+  color:var(--muted);font-weight:600;border-bottom:1px solid var(--line)}
+table tbody tr{border-bottom:1px solid #f2f1ec}
+table td.r,table th.r{text-align:right;font-variant-numeric:tabular-nums}
+.pos{color:var(--gain)} .neg{color:var(--loss)}
+
+/* Inputs & selects: consistent field styling + focus ring */
+input[type=text],input[type=search],input[type=number],select,textarea{
+  padding:8px 11px;border:1px solid #d7d5cd;border-radius:7px;
+  font:inherit;font-size:.88rem;background:#fff;color:var(--ink);box-sizing:border-box}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--crimson);
+  box-shadow:0 0 0 2px rgba(200,16,46,.12)}
+
+/* Generic card (used by glossary, dashboard, etc.) */
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:14px 16px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+
+/* Fund/ticker codes */
+.cat-code,.rb-code{color:#a8a49a;font-size:.78rem}
