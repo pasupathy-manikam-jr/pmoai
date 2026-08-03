@@ -24,8 +24,10 @@ Route::post('/ingest-page', [SnapshotController::class, 'ingestPage'])->name('sn
 Route::post('/portfolio/review', [SnapshotController::class, 'portfolioReview'])->name('portfolio.review');
 Route::get('/portfolio/review/status', [SnapshotController::class, 'portfolioReviewStatus'])->name('portfolio.reviewStatus');
 Route::get('/simulator', [SnapshotController::class, 'simulator'])->name('simulator');
+Route::get('/snapshots/{snapshot}/report', [SnapshotController::class, 'report'])->name('snapshots.report');
 
 Route::view('/dashboard', 'dashboard')->name('dashboard');
+Route::view('/glossary', 'glossary')->name('glossary');
 
 // Refresh live market quotes on demand (button on the dashboard).
 Route::post('/quotes/fetch', function () {

@@ -305,6 +305,7 @@
             @unless (in_array($snapshot->status, ['recommended', 'failed', 'stored']))
                 · <span class="ps-working">processing…</span>
             @endunless
+            · <a href="{{ route('snapshots.report', $snapshot) }}">🖶 printable report</a>
         </p>
 
         @php
@@ -402,6 +403,47 @@
                 · USD/MYR is live on the Dashboard
             </small>
         </p>
+
+        @if ($portfolio->isNotEmpty())
+            @php
+                $palette = ['#c8102e', '#1a7f5a', '#2a6fc9', '#e0a020', '#8e44ad', '#16a085', '#d35400', '#7f8c8d', '#c0392b', '#2980b9'];
+                $slices = collect($portfolio)->map(fn ($h) => ['name' => $h['name'], 'val' => (float) $h['value']])->sortByDesc('val')->values();
+                $allocTot = $slices->sum('val') ?: 1;
+                $C = 2 * M_PI * 60;
+                $acc = 0;
+                $sN = fn ($n) => (string) \Illuminate\Support\Str::of($n)->after('PUBLIC ')->limit(26);
+            @endphp
+            <div class="alloc-wrap">
+                <svg viewBox="0 0 160 160" class="alloc-donut" role="img" aria-label="Allocation by fund">
+                    <g transform="rotate(-90 80 80)">
+                        @foreach ($slices as $i => $s)
+                            @php $frac = $s['val'] / $allocTot; $len = $frac * $C; $off = -$acc * $C; $acc += $frac; @endphp
+                            <circle cx="80" cy="80" r="60" fill="none" stroke="{{ $palette[$i % count($palette)] }}"
+                                stroke-width="26" stroke-dasharray="{{ round($len, 2) }} {{ round($C - $len, 2) }}"
+                                stroke-dashoffset="{{ round($off, 2) }}"></circle>
+                        @endforeach
+                    </g>
+                    <text x="80" y="77" text-anchor="middle" class="alloc-c1">{{ $slices->count() }} funds</text>
+                    <text x="80" y="93" text-anchor="middle" class="alloc-c2">RM {{ number_format($allocTot, 0) }}</text>
+                </svg>
+                <ul class="alloc-legend">
+                    @foreach ($slices as $i => $s)
+                        <li><span class="alloc-dot" style="background:{{ $palette[$i % count($palette)] }}"></span>
+                            {{ $sN($s['name']) }} <b>{{ number_format($s['val'] / $allocTot * 100, 1) }}%</b></li>
+                    @endforeach
+                </ul>
+            </div>
+            <style>
+                .alloc-wrap { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; margin: 12px 0 4px; }
+                .alloc-donut { width: 160px; height: 160px; flex: none; }
+                .alloc-c1 { font-size: 11px; fill: #888; }
+                .alloc-c2 { font-size: 12px; font-weight: 700; fill: #222; }
+                .alloc-legend { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 2px 18px; font-size: 13px; }
+                .alloc-legend li { display: flex; align-items: center; gap: 6px; }
+                .alloc-dot { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+                .alloc-legend b { margin-left: auto; font-variant-numeric: tabular-nums; }
+            </style>
+        @endif
 
 
             <div class="ps-hero" style="margin-top:2px">

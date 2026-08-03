@@ -9,5 +9,7 @@
            class="{{ request()->routeIs('snapshots.create') ? 'active' : '' }}">New analysis</a>
         <a href="{{ route('dashboard') }}"
            class="{{ request()->routeIs('dashboard') ? 'active' : '' }}">Dashboard</a>
+        <a href="{{ route('glossary') }}"
+           class="{{ request()->routeIs('glossary') ? 'active' : '' }}">Glossary</a>
     </nav>
 </header>

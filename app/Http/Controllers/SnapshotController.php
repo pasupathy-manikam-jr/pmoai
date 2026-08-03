@@ -639,6 +639,32 @@ class SnapshotController extends Controller
      * Standalone what-if switch simulator (client-side math; this just
      * supplies holdings + catalog).
      */
+    /** Print-friendly one-page portfolio report (browser → Save as PDF). */
+    public function report(Snapshot $snapshot)
+    {
+        $held = FundDetail::whereRaw("payload->'position'->>'current_value' is not null")
+            ->get()
+            ->map(function ($d) {
+                $pos = $d->payload['position'];
+                $inv = (float) ($pos['invested'] ?? 0);
+                $val = (float) $pos['current_value'];
+                $verdict = null;
+                if (! empty($d->payload['ai']['text'])
+                    && preg_match('/\b(BUY|KEEP|HOLD|ACCUMULATE|REDUCE|TRIM|SELL|AVOID)\b/i', $d->payload['ai']['text'], $m)) {
+                    $verdict = strtoupper($m[1]);
+                }
+
+                return ['name' => $d->name, 'invested' => $inv, 'value' => $val,
+                    'pl' => $val - $inv, 'verdict' => $verdict];
+            })
+            ->sortByDesc('value')->values();
+
+        $totInv = $held->sum('invested');
+        $totVal = $held->sum('value');
+
+        return view('snapshots.report', compact('snapshot', 'held', 'totInv', 'totVal'));
+    }
+
     public function simulator()
     {
         $funds = Fund::orderBy('name')->get();
