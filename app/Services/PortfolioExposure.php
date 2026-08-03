@@ -136,6 +136,47 @@ class PortfolioExposure
         return $out;
     }
 
+    /**
+     * Each held fund vs its OWN Public Mutual benchmark, straight from the
+     * captured factsheet (PMO publishes fund_ann vs bench_ann per period). Picks
+     * the longest period available. Positive diff = the fund beat its benchmark.
+     *
+     * @return array<int, array{name:string, period:string, fund:float, bench:float, diff:float, beat:bool}>
+     */
+    public function benchmarks(): array
+    {
+        $analysis = app(FundAnalysis::class);
+        $out = [];
+        foreach ($this->held() as $d) {
+            [$code, $hist, $fund] = $analysis->resolve($d);
+            if (! $fund || preg_match('/CASH|MONEY MARKET|\bPRS\b/i', $fund->name)) {
+                continue;
+            }
+            $br = optional($analysis->factsheetFor($code))->benchmark_returns;
+            if (! is_array($br)) {
+                continue;
+            }
+            foreach (['5y', '3y', '1y', 'since'] as $p) {
+                $f = $br[$p]['fund_ann'] ?? null;
+                $b = $br[$p]['bench_ann'] ?? null;
+                if ($f !== null && $b !== null) {
+                    $out[] = [
+                        'name'   => $this->short($fund->name),
+                        'period' => $p,
+                        'fund'   => (float) $f,
+                        'bench'  => (float) $b,
+                        'diff'   => round((float) $f - (float) $b, 2),
+                        'beat'   => (float) $f >= (float) $b,
+                    ];
+                    break;
+                }
+            }
+        }
+        usort($out, fn ($a, $b) => $b['diff'] <=> $a['diff']);
+
+        return $out;
+    }
+
     /** Match key — strip corporate suffixes/share-class so "NVIDIA Corporation" == "NVIDIA". */
     private function normStock(string $s): string
     {

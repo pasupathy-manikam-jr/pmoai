@@ -8,7 +8,7 @@
         $pl = $totVal - $totInv;
         $tot = $totVal ?: 1;
         $palette = ['#c8102e', '#1a7f5a', '#2a6fc9', '#e0a020', '#8e44ad', '#16a085', '#d35400', '#7f8c8d', '#c0392b'];
-        $sN = fn ($n) => (string) \Illuminate\Support\Str::of($n)->after('PUBLIC ')->limit(34);
+        $sN = fn ($n) => (string) \Illuminate\Support\Str::of($n)->after('PUBLIC ');
     @endphp
 
     <div class="rpt">

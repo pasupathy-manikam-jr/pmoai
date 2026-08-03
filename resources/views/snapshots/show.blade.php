@@ -27,28 +27,39 @@
 
 
 
-    @foreach ($fired as $a)
-        @php
-            $isIdx = (bool) $a->market_symbol;
-            $fn = $isIdx
-                ? (collect(config('quotes.indices'))->firstWhere('symbol', $a->market_symbol)['label'] ?? $a->market_symbol)
-                : (optional($funds->first(fn ($f) => strtoupper($f->code ?? '') === strtoupper($a->fund_code)))->name ?? $a->fund_code);
-            $dp = $isIdx ? 2 : 4;
-            $unit = $isIdx ? '' : 'RM';
-            $dir = $a->condition === 'below' ? 'dropped to' : 'rose to';
-            $lvlTxt = rtrim(rtrim(number_format((float) $a->level, $dp), '0'), '.');
-            $watch = $a->condition === 'below' ? 'watch-below' : 'watch-above';
-        @endphp
-        <div class="alert-fired">
-            🔔 <b>{{ $fn }}</b> {{ $dir }} <b>{{ $unit }}{{ number_format((float) $a->fired_price, $dp) }}</b>
-            on {{ $a->fired_at->format('d M Y') }} — your {{ $watch }} level of {{ $unit }}{{ $lvlTxt }} was reached.
-            @if ($a->explanation)
-                <div class="alert-exp">{{ $a->explanation }}</div>
-            @endif
-            <details class="alert-raw"><summary>signal detail</summary>{{ $a->label }}</details>
-        </div>
-    @endforeach
+    @if ($fired->isNotEmpty())
+        <details class="alerts-fold" open>
+            <summary>🔔 {{ $fired->count() }} price alert{{ $fired->count() === 1 ? '' : 's' }} fired — click to show / hide</summary>
+            @foreach ($fired as $a)
+                @php
+                    $isIdx = (bool) $a->market_symbol;
+                    $fn = $isIdx
+                        ? (collect(config('quotes.indices'))->firstWhere('symbol', $a->market_symbol)['label'] ?? $a->market_symbol)
+                        : (optional($funds->first(fn ($f) => strtoupper($f->code ?? '') === strtoupper($a->fund_code)))->name ?? $a->fund_code);
+                    $dp = $isIdx ? 2 : 4;
+                    $unit = $isIdx ? '' : 'RM';
+                    $dir = $a->condition === 'below' ? 'dropped to' : 'rose to';
+                    $lvlTxt = rtrim(rtrim(number_format((float) $a->level, $dp), '0'), '.');
+                    $watch = $a->condition === 'below' ? 'watch-below' : 'watch-above';
+                @endphp
+                <div class="alert-fired">
+                    🔔 <b>{{ $fn }}</b> {{ $dir }} <b>{{ $unit }}{{ number_format((float) $a->fired_price, $dp) }}</b>
+                    on {{ $a->fired_at->format('d M Y') }} — your {{ $watch }} level of {{ $unit }}{{ $lvlTxt }} was reached.
+                    @if ($a->explanation)
+                        <div class="alert-exp">{{ $a->explanation }}</div>
+                    @endif
+                    <details class="alert-raw"><summary>signal detail</summary>{{ $a->label }}</details>
+                </div>
+            @endforeach
+        </details>
+    @endif
     <style>
+        .alerts-fold { margin: 0 0 14px; border: 1px solid var(--line, #e5e5e5); border-radius: 10px; overflow: hidden; }
+        .alerts-fold > summary { padding: 10px 14px; cursor: pointer; font-weight: 600; font-size: 13px; background: #fff7f2; color: #c8102e; list-style: none; }
+        .alerts-fold > summary::-webkit-details-marker { display: none; }
+        .alerts-fold > summary::before { content: '▸ '; }
+        .alerts-fold[open] > summary::before { content: '▾ '; }
+        .alerts-fold .alert-fired { margin: 0; border-radius: 0; border: 0; border-top: 1px solid #f2e6e0; }
         .alert-exp { margin-top: 4px; font-size: 13px; color: #444; }
         .alert-raw, .trig-raw { margin-top: 3px; font-size: 11px; color: #999; }
         .alert-raw summary { cursor: pointer; }
@@ -281,7 +292,7 @@
                     <tr><th>Fund</th><th>Call</th><th>On</th><th>Price then → now</th><th>Since</th><th>Call worked?</th></tr>
                     @foreach ($backtest as $b)
                         <tr>
-                            <td>{{ \Illuminate\Support\Str::of($b['name'])->after('PUBLIC ')->limit(30) }}</td>
+                            <td>{{ \Illuminate\Support\Str::of($b['name'])->after('PUBLIC ') }}</td>
                             <td><span class="{{ $b['bull'] ? 'pos' : 'neg' }}">{{ $b['bull'] ? 'keep/buy' : 'sell/reduce' }}</span></td>
                             <td class="pt-date">{{ \Illuminate\Support\Carbon::parse($b['at'])->format('d M') }}</td>
                             <td>{{ number_format($b['then'], 4) }} → {{ number_format($b['now'], 4) }}</td>
@@ -326,7 +337,10 @@
                 $cutTone = 'off';
             }
         @endphp
-        <p class="ps-cutoff ps-cutoff-{{ $cutTone }}">🕓 {{ $cutMsg }} <small>(public holidays excluded — check the calendar)</small></p>
+        <div class="stress-box">
+            <span class="stress-h">🕓 Order cut-off</span>
+            <p class="stress-intro" style="margin:2px 0 0"><span class="{{ $cutTone === 'open' ? 'pos' : ($cutTone === 'warn' ? '' : 'neg') }}">{{ $cutMsg }}</span> — public holidays excluded, check the calendar.</p>
+        </div>
 
         @php
             $prsYr = now('Asia/Kuala_Lumpur')->year;
@@ -339,20 +353,24 @@
             $prsOver = $prsTotal - 3000;
             $prsTone = $prsTotal < 3000 ? 'warn' : ($prsOver > 0 ? 'off' : 'open');
         @endphp
-        <p class="ps-cutoff ps-cutoff-{{ $prsTone }}">
-            🏦 PRS tax relief {{ $prsYr }}: RM {{ number_format($prsTotal, 0) }} / 3,000
-            @if ($prsPend > 0)<small>(incl. RM {{ number_format($prsPend, 0) }} pending)</small>@endif
-            @if ($prsTotal < 3000)
-                — contribute RM {{ number_format(3000 - $prsTotal, 0) }} more before 31 Dec for up to ~RM900 tax saved
-            @elseif ($prsOver > 0)
-                — ⚠ over the RM3,000 cap: RM {{ number_format($prsOver, 0) }} has NO tax relief this year (relief is capped at RM3,000/yr, not per fund)
-            @else
-                — done ✓ (RM3,000 relief maxed)
-            @endif
-            @if ($prsXirr !== null)
-                <small>· your PRS return since 2019: {{ $prsXirr >= 0 ? '+' : '' }}{{ $prsXirr }}%/yr</small>
-            @endif
-        </p>
+        <div class="stress-box">
+            <span class="stress-h">🏦 PRS tax relief {{ $prsYr }}</span>
+            <table class="stress-tbl">
+                <tr><td>Contributed this year</td><td class="r">RM {{ number_format($prsTotal, 0) }}@if ($prsPend > 0) <span class="stress-worst">(incl. RM{{ number_format($prsPend, 0) }} pending)</span>@endif</td></tr>
+                <tr><td>Tax-relief cap</td><td class="r">RM 3,000 / year</td></tr>
+                @if ($prsOver > 0)
+                    <tr><td>Over the cap</td><td class="r neg">RM {{ number_format($prsOver, 0) }} — no tax relief</td></tr>
+                @elseif ($prsTotal < 3000)
+                    <tr><td>Room left</td><td class="r">RM {{ number_format(3000 - $prsTotal, 0) }} before 31 Dec (~RM900 tax saved)</td></tr>
+                @else
+                    <tr><td>Status</td><td class="r pos">relief maxed ✓</td></tr>
+                @endif
+                @if ($prsXirr !== null)
+                    <tr><td>Your PRS return since 2019</td><td class="r {{ $prsXirr >= 0 ? 'pos' : 'neg' }}">{{ $prsXirr >= 0 ? '+' : '' }}{{ $prsXirr }}%/yr</td></tr>
+                @endif
+            </table>
+            @if ($prsOver > 0)<small class="ps-sub">Relief is capped per person per year (RM3,000), NOT per fund — the excess has no tax benefit this year.</small>@endif
+        </div>
 
         @php
             // Concentration: single-fund weight of the whole book. >30% = one
@@ -362,18 +380,21 @@
             $topW = $conc->first()['w'] ?? 0;
             $over = $conc->filter(fn ($c) => $c['w'] >= 30);
             $concTone = $topW >= 30 ? 'off' : ($topW >= 25 ? 'warn' : 'open');
-            $shortN = fn ($n) => (string) \Illuminate\Support\Str::of($n)->after('PUBLIC ')->limit(20);
+            $shortN = fn ($n) => (string) \Illuminate\Support\Str::of($n)->after('PUBLIC ');
         @endphp
-        <p class="ps-cutoff ps-cutoff-{{ $concTone }}">
-            📊 Concentration:
-            @if ($over->isNotEmpty())
-                ⚠ {{ collect($over)->map(fn ($c) => $shortN($c['name']).' '.number_format($c['w'], 0).'%')->implode(', ') }}
-                over 30% of the book — one fund's drop moves the whole portfolio
-            @else
-                largest position {{ $shortN($conc->first()['name'] ?? '—') }} at {{ number_format($topW, 1) }}% — within a 30% comfort band
-            @endif
-            <small>· top: @foreach ($conc->take(4) as $c){{ $shortN($c['name']) }} {{ number_format($c['w'], 0) }}%@unless ($loop->last) · @endunless @endforeach</small>
-        </p>
+        <div class="stress-box">
+            <span class="stress-h">📊 Concentration @if ($over->isNotEmpty())<span class="neg">⚠ over 30%</span>@endif</span>
+            <p class="stress-intro">Single-fund weight of the whole book. Over 30% means one fund's drop swings the whole portfolio.</p>
+            <table class="stress-tbl">
+                <tr><th>Fund</th><th class="r">Weight</th></tr>
+                @foreach ($conc->take(6) as $c)
+                    <tr>
+                        <td>{{ $shortN($c['name']) }}</td>
+                        <td class="r {{ $c['w'] >= 30 ? 'neg' : ($c['w'] >= 25 ? '' : '') }}">{{ number_format($c['w'], 1) }}%@if ($c['w'] >= 30) ⚠@endif</td>
+                    </tr>
+                @endforeach
+            </table>
+        </div>
 
         @php
             // Currency exposure — ESTIMATED from each fund's geography (held
@@ -396,13 +417,20 @@
             $ccyTot = $ccy->sum() ?: 1;
             $foreignPct = 100 - ($ccy['MYR'] ?? 0) / $ccyTot * 100;
         @endphp
-        <p class="ps-cutoff {{ $foreignPct >= 60 ? 'ps-cutoff-warn' : 'ps-cutoff-open' }}">
-            💱 Currency exposure (estimated): ~{{ number_format($foreignPct, 0) }}% of the book is in foreign currency — the ringgit moving swings your RM returns.
-            <small>·
-                @foreach ($ccy as $code => $val){{ $code }} {{ number_format($val / $ccyTot * 100, 0) }}%@unless ($loop->last) · @endunless @endforeach
-                · USD/MYR is live on the Dashboard
-            </small>
-        </p>
+        <div class="stress-box">
+            <span class="stress-h">💱 Currency exposure (estimated)</span>
+            <p class="stress-intro">~{{ number_format($foreignPct, 0) }}% of the book is in foreign currency — the ringgit moving swings your RM returns even when funds are flat. USD/MYR is live on the Dashboard. Estimated from fund geography (held e-Series funds carry no factsheet fx table).</p>
+            <table class="stress-tbl">
+                <tr><th>Currency</th><th class="r">% of book</th><th class="r">Value</th></tr>
+                @foreach ($ccy as $code => $val)
+                    <tr>
+                        <td>{{ $code }}</td>
+                        <td class="r">{{ number_format($val / $ccyTot * 100, 1) }}%</td>
+                        <td class="r">RM {{ number_format($val, 0) }}</td>
+                    </tr>
+                @endforeach
+            </table>
+        </div>
 
         @if ($portfolio->isNotEmpty())
             @php
@@ -411,7 +439,7 @@
                 $allocTot = $slices->sum('val') ?: 1;
                 $C = 2 * M_PI * 60;
                 $acc = 0;
-                $sN = fn ($n) => (string) \Illuminate\Support\Str::of($n)->after('PUBLIC ')->limit(26);
+                $sN = fn ($n) => (string) \Illuminate\Support\Str::of($n)->after('PUBLIC ');
             @endphp
             <div class="alloc-wrap">
                 <svg viewBox="0 0 160 160" class="alloc-donut" role="img" aria-label="Allocation by fund">
@@ -450,13 +478,43 @@
             $sectors = $exp->sectors();
             $overlap = array_values(array_filter($exp->stocks(), fn ($s) => $s['fund_count'] >= 2));
             $riskAdj = $exp->riskAdjusted();
+            $benchmarks = $exp->benchmarks();
         @endphp
+        @if ($benchmarks)
+            <div class="stress-box">
+                <span class="stress-h">📈 Each fund vs its own PMO benchmark</span>
+                <p class="stress-intro">The fund's own annualised return minus its Public Mutual benchmark, straight from the captured factsheet. Green beat its benchmark; red lagged — a red fund means a plain index of the same market would have done better.</p>
+                <table class="stress-tbl">
+                    <tr><th>Fund</th><th class="r">Period</th><th class="r">Fund</th><th class="r">Benchmark</th><th class="r">Difference</th><th>Verdict</th></tr>
+                    @foreach ($benchmarks as $b)
+                        <tr>
+                            <td>{{ \Illuminate\Support\Str::of($b['name']) }}</td>
+                            <td class="r">{{ $b['period'] }}</td>
+                            <td class="r">{{ number_format($b['fund'], 2) }}%</td>
+                            <td class="r">{{ number_format($b['bench'], 2) }}%</td>
+                            <td class="r {{ $b['beat'] ? 'pos' : 'neg' }}">{{ $b['diff'] >= 0 ? '+' : '' }}{{ number_format($b['diff'], 2) }}%</td>
+                            <td class="{{ $b['beat'] ? 'pos' : 'neg' }}">{{ $b['beat'] ? '✓ beats' : '✗ lags' }}</td>
+                        </tr>
+                    @endforeach
+                </table>
+            </div>
+        @endif
         @if ($riskAdj)
-            <p class="ps-cutoff ps-cutoff-open">
-                ⚖️ Return per unit of risk (PMO volatility factor):
-                @foreach ($riskAdj as $r)<b>{{ \Illuminate\Support\Str::of($r['name'])->limit(20) }}</b> {{ number_format($r['ratio'], 2) }}@unless ($loop->last) · @endunless @endforeach
-                <small>· each fund's return ÷ its PMO factsheet volatility — higher = more return for the price swings (money-market excluded)</small>
-            </p>
+            <div class="stress-box">
+                <span class="stress-h">⚖️ Return per unit of risk</span>
+                <p class="stress-intro">Each fund's return ÷ its Public Mutual factsheet volatility factor — higher means more return for the price swings you stomach. Money-market excluded (its near-zero volatility distorts the ratio).</p>
+                <table class="stress-tbl">
+                    <tr><th>Fund</th><th class="r">Return</th><th class="r">Volatility</th><th class="r">Return / risk</th></tr>
+                    @foreach ($riskAdj as $r)
+                        <tr>
+                            <td>{{ \Illuminate\Support\Str::of($r['name']) }}</td>
+                            <td class="r {{ $r['return'] >= 0 ? 'pos' : 'neg' }}">{{ number_format($r['return'], 2) }}%</td>
+                            <td class="r">{{ number_format($r['vol'], 1) }}</td>
+                            <td class="r {{ $r['ratio'] >= 0 ? 'pos' : 'neg' }}"><b>{{ number_format($r['ratio'], 2) }}</b></td>
+                        </tr>
+                    @endforeach
+                </table>
+            </div>
         @endif
 
         @php $cashPlan = app(\App\Services\CashPlanner::class)->plan(); @endphp
@@ -468,7 +526,7 @@
                     <tr><th>Fund</th><th class="r">Now</th><th class="r">Cost to buy</th><th class="r">Room to 30%</th><th>Flags</th></tr>
                     @foreach (array_slice($cashPlan['candidates'], 0, 5) as $c)
                         <tr>
-                            <td>{{ \Illuminate\Support\Str::of($c['name'])->limit(26) }}</td>
+                            <td>{{ \Illuminate\Support\Str::of($c['name']) }}</td>
                             <td class="r">{{ number_format($c['weight'], 1) }}%</td>
                             <td class="r {{ $c['cost_pct'] <= 1 ? 'pos' : '' }}">{{ $c['cost_pct'] }}%</td>
                             <td class="r">{{ $c['over'] ? '—' : 'RM '.number_format($c['headroom'], 0) }}</td>
@@ -490,7 +548,7 @@
                         <tr>
                             <td>{{ $s['label'] }}</td>
                             <td class="{{ $s['delta'] >= 0 ? 'pos' : 'neg' }}">{{ $s['delta'] >= 0 ? '+' : '−' }}RM {{ number_format(abs($s['delta']), 0) }} ({{ number_format($s['pct'], 1) }}%)</td>
-                            <td class="stress-worst">@if ($s['worst'])worst: {{ \Illuminate\Support\Str::of($s['worst']['name'])->after('e-')->limit(18) }} −RM{{ number_format(abs($s['worst']['delta']), 0) }}@endif</td>
+                            <td class="stress-worst">@if ($s['worst'])worst: {{ \Illuminate\Support\Str::of($s['worst']['name'])->after('e-') }} −RM{{ number_format(abs($s['worst']['delta']), 0) }}@endif</td>
                         </tr>
                     @endforeach
                 </table>
@@ -506,18 +564,37 @@
             </style>
         @endif
         @if ($sectors)
-            <p class="ps-cutoff ps-cutoff-open">
-                🏭 Sector look-through:
-                @foreach (array_slice($sectors, 0, 5) as $s){{ $s['sector'] }} {{ number_format($s['pct'], 0) }}%@unless ($loop->last) · @endunless @endforeach
-                <small>· weighted from each fund's top sectors — Technology leads via your AI + semiconductor funds</small>
-            </p>
+            <div class="stress-box">
+                <span class="stress-h">🏭 Sector look-through</span>
+                <p class="stress-intro">Weighted from each fund's captured top-5 sectors — where the whole book leans. Technology dominates via your AI + semiconductor funds. (% of total book; captured sectors don't sum to 100%.)</p>
+                <table class="stress-tbl">
+                    <tr><th>Sector</th><th class="r">% of book</th><th class="r">Value</th></tr>
+                    @foreach (array_slice($sectors, 0, 6) as $s)
+                        <tr>
+                            <td>{{ $s['sector'] }}</td>
+                            <td class="r">{{ number_format($s['pct'], 1) }}%</td>
+                            <td class="r">RM {{ number_format($s['rm'], 0) }}</td>
+                        </tr>
+                    @endforeach
+                </table>
+            </div>
         @endif
         @if ($overlap)
-            <p class="ps-cutoff ps-cutoff-warn">
-                🔍 Same stock across funds (hidden concentration):
-                @foreach ($overlap as $s)<b>{{ $s['stock'] }}</b> ({{ $s['fund_count'] }} funds, ~RM{{ number_format($s['combined_value'], 0) }})@unless ($loop->last) · @endunless @endforeach
-                <small>· you hold these through more than one fund — single-stock risk the per-fund weights don't show</small>
-            </p>
+            <div class="stress-box">
+                <span class="stress-h">🔍 Same stock across funds — hidden concentration</span>
+                <p class="stress-intro">A stock you hold through more than one fund. The fund-level weights don't show this — a single-stock shock hits several of your funds at once.</p>
+                <table class="stress-tbl">
+                    <tr><th>Stock</th><th class="r">In funds</th><th class="r">Combined fund value</th><th>Which funds</th></tr>
+                    @foreach ($overlap as $s)
+                        <tr>
+                            <td>{{ $s['stock'] }}</td>
+                            <td class="r">{{ $s['fund_count'] }}</td>
+                            <td class="r">~RM {{ number_format($s['combined_value'], 0) }}</td>
+                            <td class="stress-worst">{{ implode(', ', array_map(fn ($f) => \Illuminate\Support\Str::of($f)->limit(22), $s['funds'])) }}</td>
+                        </tr>
+                    @endforeach
+                </table>
+            </div>
         @endif
 
 

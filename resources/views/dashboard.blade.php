@@ -87,7 +87,7 @@
                     <div class="idx-funds">
                         <span class="idx-funds-h">Your funds here:</span>
                         @foreach ($ix['funds'] as $f)
-                            <span class="idx-fund">{{ \Illuminate\Support\Str::of($f['name'])->limit(24) }} <b>RM{{ number_format($f['rm'], 0) }}</b></span>
+                            <span class="idx-fund">{{ \Illuminate\Support\Str::of($f['name']) }} <b>RM{{ number_format($f['rm'], 0) }}</b></span>
                         @endforeach
                     </div>
                 @endif
