@@ -449,7 +449,15 @@
             $exp = app(\App\Services\PortfolioExposure::class);
             $sectors = $exp->sectors();
             $overlap = array_values(array_filter($exp->stocks(), fn ($s) => $s['fund_count'] >= 2));
+            $riskAdj = $exp->riskAdjusted();
         @endphp
+        @if ($riskAdj)
+            <p class="ps-cutoff ps-cutoff-open">
+                ⚖️ Return per unit of risk (PMO volatility factor):
+                @foreach ($riskAdj as $r)<b>{{ \Illuminate\Support\Str::of($r['name'])->limit(20) }}</b> {{ number_format($r['ratio'], 2) }}@unless ($loop->last) · @endunless @endforeach
+                <small>· each fund's return ÷ its PMO factsheet volatility — higher = more return for the price swings (money-market excluded)</small>
+            </p>
+        @endif
         @if ($sectors)
             <p class="ps-cutoff ps-cutoff-open">
                 🏭 Sector look-through:

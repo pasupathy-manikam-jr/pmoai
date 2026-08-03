@@ -5,6 +5,16 @@ fees, rules, cost basis, and concentration that the provider's UI hides — not
 market-beating stock picks. Enhancements below deepen that visibility and cut
 the manual steps.
 
+**GROUNDING RULE (non-negotiable).** Every feature must be built on *Public
+Mutual's own data and mechanics* — the funds you actually hold, their captured
+factsheets (NAV, volatility factor, benchmark, geo/sector/holdings), your real
+statements/transactions, and the real PMO rules (sales charges, 90-day
+free-switch, e-Series-only switching, no-switch funds, 4 PM MYT cut-off, PRS
+RM3,000 relief). No generic-investing-app features, no imagined metrics, no
+"best practices" copied from elsewhere. If a proposed feature can't point to a
+specific piece of captured PMO data or a documented PMO rule, it doesn't belong
+here.
+
 **Status (2026-08-03):** Phases 0, 1, 2, 4, 5 ✅ shipped · Phase 3 skipped (reach
 features — not needed for a local, single-user app) · Phase 6 🚧 in progress
 (sector look-through + stock overlap shipped; fx parser + risk-adjusted left) ·
@@ -163,18 +173,26 @@ The geography work proved the pattern; apply it to the other captured blocks.
 
 ## Phase 10 — knowledge & context
 
-- **Per-fund research notes** — your own annotations, kept with the fund.
-- **Macro calendar** — FOMC / BNM / key earnings dates for your holdings, so a
-  trigger is read against what's coming.
-- **News / sentiment per holding** — headlines for the top stocks you hold
-  through funds, cited and dated.
-- **Backup & restore** — one-command export of the whole local dataset.
+- **Per-fund research notes** — your own annotations kept against a specific PMO
+  fund.
+- **Exposure-driven calendar** — only dates that move *your* funds: BNM (the
+  ringgit → every foreign fund), the Fed (your ~50% USD exposure), and PMO's own
+  distribution/ex-dates. Not a generic economic calendar.
+- **Backup & restore** — one-command export of the local PMO dataset.
 
 ---
 
-## Beyond
+## Beyond (explicitly NOT core — only if you ask)
 
-- Multi-portfolio / household view (spouse + kids' PRS).
-- A second provider's funds (generalise the parsers).
-- Local LLM fine-tune on your own captured factsheets for cheaper, private
-  analysis.
+These leave strict PMO grounding, so they sit outside the roadmap unless wanted:
+
+- Multi-portfolio / household view (spouse + kids' PMO/PRS accounts) — still PMO,
+  just more of it.
+- A second fund provider (would need new parsers) — only if you ever hold funds
+  elsewhere.
+- Local LLM fine-tuned on your captured PMO factsheets — cheaper/private
+  analysis, but an ambitious side-quest.
+
+*(Dropped from earlier drafts as too generic: per-holding news/sentiment feeds,
+"monte-carlo" projections, and portfolio-analytics jargon — none tied to a
+concrete piece of PMO data.)*

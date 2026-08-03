@@ -103,6 +103,39 @@ class PortfolioExposure
         return $out;
     }
 
+    /**
+     * Return-per-unit-of-risk for each held fund: the fund's longest available
+     * annualised return divided by its captured volatility factor. Higher =
+     * more return for the price swings you stomach. Held funds only, sorted.
+     *
+     * @return array<int, array{name:string, return:float, vol:float, ratio:float}>
+     */
+    public function riskAdjusted(): array
+    {
+        $analysis = app(FundAnalysis::class);
+        $out = [];
+        foreach ($this->held() as $d) {
+            [$code, $hist, $fund] = $analysis->resolve($d);
+            if (! $fund || preg_match('/CASH|MONEY MARKET|DEPOSIT/i', $fund->name)) {
+                continue;   // money-market's tiny volatility distorts the ratio
+            }
+            $ret = $fund->return_5y ?? $fund->return_3y ?? $fund->return_1y;
+            $vol = optional($analysis->factsheetFor($code))->volatility_factor;
+            if ($ret === null || ! $vol || (float) $vol <= 0) {
+                continue;
+            }
+            $out[] = [
+                'name'   => $this->short($fund->name),
+                'return' => (float) $ret,
+                'vol'    => (float) $vol,
+                'ratio'  => round((float) $ret / (float) $vol, 2),
+            ];
+        }
+        usort($out, fn ($a, $b) => $b['ratio'] <=> $a['ratio']);
+
+        return $out;
+    }
+
     /** Match key — strip corporate suffixes/share-class so "NVIDIA Corporation" == "NVIDIA". */
     private function normStock(string $s): string
     {
