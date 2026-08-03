@@ -14,6 +14,40 @@ class MarketQuoteService
     private const BASE = 'https://query1.finance.yahoo.com/v8/finance/chart/';
 
     /**
+     * Daily close history for one symbol (for backfilling our own store).
+     *
+     * @return array<int, array{date: string, close: float}>  oldest → newest
+     */
+    public function history(string $symbol, string $range = '3mo'): array
+    {
+        try {
+            $res = Http::withHeaders(['User-Agent' => 'Mozilla/5.0'])
+                ->timeout(15)
+                ->get(self::BASE.rawurlencode($symbol), ['interval' => '1d', 'range' => $range]);
+
+            $result = $res->json('chart.result.0');
+            $stamps = $result['timestamp'] ?? null;
+            $closes = $result['indicators']['quote'][0]['close'] ?? null;
+            if (! is_array($stamps) || ! is_array($closes)) {
+                return [];
+            }
+
+            $out = [];
+            foreach ($stamps as $i => $ts) {
+                $c = $closes[$i] ?? null;
+                if ($c === null) {
+                    continue;   // market holiday / missing point
+                }
+                $out[] = ['date' => gmdate('Y-m-d', (int) $ts), 'close' => (float) $c];
+            }
+
+            return $out;
+        } catch (Throwable $e) {
+            return [];
+        }
+    }
+
+    /**
      * @param  string[]  $symbols  Yahoo symbols, e.g. ['^JKSE', 'MYR=X']
      * @return array<string, array{price: float, prev_close: ?float, change_pct: ?float, currency: ?string}>
      */

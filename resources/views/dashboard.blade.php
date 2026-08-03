@@ -6,13 +6,16 @@
 @section('content')
     <h1>Market indices</h1>
     @php
-        // Config-driven: symbol (live Yahoo quote via pmoai:fetch-quotes) +
-        // tv (embedded TradingView chart). Live number sits above the chart.
-        $indices = config('quotes.indices', []);
+        // Indices derived from the portfolio's real geographic exposure
+        // (each fund's captured geographical breakdown, weighted by value).
+        $indices = app(\App\Services\PortfolioIndices::class)->derive();
         $quotes = \App\Models\MarketQuote::all()->keyBy('symbol');
         $lastFetch = optional($quotes->max('fetched_at'));
+        // Our own daily history (independent of TradingView) → sparklines.
+        $hist = \App\Models\MarketQuoteDay::whereIn('symbol', array_column($indices, 'symbol'))
+            ->orderBy('quote_date')->get(['symbol', 'quote_date', 'price'])->groupBy('symbol');
     @endphp
-    <p class="idx-intro">Live quotes (Yahoo) above each chart, tagged with the holding each drives.
+    <p class="idx-intro">Indices matched to where your money actually sits (from each fund's geographical breakdown). Live quotes (Yahoo) above each chart.
         @if ($lastFetch)Updated {{ $lastFetch->diffForHumans() }}.@else No quotes yet.@endif
         The chart below is TradingView (may lag for some Asian exchanges).
         <form method="POST" action="{{ route('quotes.fetch') }}" style="display:inline">
@@ -38,6 +41,29 @@
                         <span class="idx-ccy">{{ $q->currency }}</span>
                     </div>
                 @endif
+                @php $rows = $hist[$ix['symbol']] ?? collect(); $pts = $rows->pluck('price')->map(fn ($p) => (float) $p)->values(); @endphp
+                @if ($pts->count() >= 2)
+                    @php
+                        $mn = $pts->min(); $mx = $pts->max(); $rng = ($mx - $mn) ?: 1; $n = $pts->count();
+                        $poly = $pts->map(fn ($p, $i) => round($n > 1 ? $i / ($n - 1) * 236 + 2 : 2, 1).','.round(42 - ($p - $mn) / $rng * 38, 1))->implode(' ');
+                        $sUp = $pts->last() >= $pts->first();
+                        $chg = $pts->first() > 0 ? ($pts->last() - $pts->first()) / $pts->first() * 100 : 0;
+                        $dFirst = $rows->first()->quote_date; $dMid = $rows->get(intdiv($n, 2))->quote_date; $dLast = $rows->last()->quote_date;
+                        $yfmt = fn ($v) => number_format($v, $v < 10 ? 4 : ($v < 1000 ? 2 : 0));
+                    @endphp
+                    <div class="idx-spark-row">
+                        <div class="idx-yaxis"><span>{{ $yfmt($mx) }}</span><span>{{ $yfmt($mn) }}</span></div>
+                        <svg viewBox="0 0 240 44" class="idx-spark" preserveAspectRatio="none" role="img" aria-label="{{ $ix['label'] }} history">
+                            <polyline points="{{ $poly }}" fill="none" stroke="{{ $sUp ? '#1a7f5a' : '#c0392b' }}" stroke-width="1.5"></polyline>
+                        </svg>
+                    </div>
+                    <div class="idx-spark-axis">
+                        <span>{{ $dFirst->format('d M') }}</span>
+                        <span>{{ $dMid->format('d M') }}</span>
+                        <span>{{ $dLast->format('d M') }}</span>
+                    </div>
+                    <div class="idx-spark-lbl">{{ $pts->count() }} trading days stored · {{ $chg >= 0 ? '+' : '' }}{{ number_format($chg, 1) }}% over the window</div>
+                @endif
                 <div class="tradingview-widget-container">
                     <div class="tradingview-widget-container__widget"></div>
                     <script type="text/javascript"
@@ -57,6 +83,14 @@
                         ], JSON_UNESCAPED_SLASHES) !!}
                     </script>
                 </div>
+                @if (! empty($ix['funds']))
+                    <div class="idx-funds">
+                        <span class="idx-funds-h">Your funds here:</span>
+                        @foreach ($ix['funds'] as $f)
+                            <span class="idx-fund">{{ \Illuminate\Support\Str::of($f['name'])->limit(24) }} <b>RM{{ number_format($f['rm'], 0) }}</b></span>
+                        @endforeach
+                    </div>
+                @endif
                 <small><a href="https://finance.yahoo.com/quote/{{ urlencode($ix['symbol']) }}" target="_blank" rel="noopener">open full page ↗</a></small>
             </section>
         @endforeach
@@ -86,6 +120,15 @@
         .idx-price { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
         .idx-chg { font-size: 13px; font-weight: 600; }
         .idx-ccy { font-size: 11px; color: #aaa; margin-left: auto; }
+        .idx-spark-row { display: flex; align-items: stretch; gap: 4px; }
+        .idx-yaxis { display: flex; flex-direction: column; justify-content: space-between; font-size: 9px; color: #aaa; text-align: right; min-width: 34px; padding: 1px 0; }
+        .idx-spark { flex: 1; height: 44px; display: block; }
+        .idx-spark-axis { display: flex; justify-content: space-between; font-size: 9px; color: #aaa; margin-top: 1px; padding-left: 38px; }
+        .idx-spark-lbl { font-size: 10px; color: #999; margin: 1px 0 6px; }
+        .idx-funds { border-top: 1px solid #eee; margin-top: 6px; padding-top: 5px; display: flex; flex-direction: column; gap: 2px; }
+        .idx-funds-h { font-size: 9px; color: #999; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 1px; }
+        .idx-fund { display: flex; justify-content: space-between; gap: 8px; font-size: 10px; color: #555; line-height: 1.3; }
+        .idx-fund b { color: #222; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
         .idx-section small { display: block; margin-top: 4px; }
         .idx-section small a { color: #c8102e; text-decoration: none; font-size: 11px; }
         .tradingview-widget-container { min-height: 200px; }
