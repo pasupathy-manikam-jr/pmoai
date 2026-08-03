@@ -19,14 +19,16 @@ class MarketQuoteService
 {
     private const HOSTS = ['query1', 'query2'];
 
-    /** Yahoo symbol → Twelve Data symbol (independent fallback). */
+    /**
+     * Yahoo symbol → Twelve Data symbol (independent fallback). Only FX and
+     * commodities are on Twelve Data's free tier — its index symbols differ and
+     * indices require a paid plan (verified 2026-08-03), so those stay on Yahoo
+     * host-failover. USD/MYR (drives every foreign fund) and gold are the two
+     * most important quotes and are covered here.
+     */
     private const TD_MAP = [
-        '^IXIC' => 'IXIC', '^GSPC' => 'SPX', '^DJI' => 'DJI',
-        '^JKSE' => 'JKSE', '^TWII' => 'TWII', '^KS11' => 'KS11',
-        '^NSEI' => 'NSEI', '^AEX' => 'AEX', '^N225' => 'N225',
-        '^FTSE' => 'UKX', '^FCHI' => 'FCHI', '^STI' => 'STI',
-        '^KLSE' => 'KLSE', 'MYR=X' => 'USD/MYR', 'GC=F' => 'XAU/USD',
-        'BZ=F' => 'UKOIL',
+        'MYR=X' => 'USD/MYR',
+        'GC=F'  => 'XAU/USD',
     ];
 
     /**
