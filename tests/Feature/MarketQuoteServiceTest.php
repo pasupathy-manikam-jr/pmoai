@@ -65,6 +65,35 @@ class MarketQuoteServiceTest extends TestCase
         $this->assertSame([], $out);
     }
 
+    public function test_twelvedata_fallback_used_when_yahoo_fails(): void
+    {
+        config(['services.twelvedata.key' => 'test-key']);
+        Http::fake([
+            'query1.finance.yahoo.com/*' => Http::response(null, 500),
+            'query2.finance.yahoo.com/*' => Http::response(null, 500),
+            'api.twelvedata.com/*' => Http::response([
+                'symbol' => 'USD/MYR', 'close' => '4.2000', 'previous_close' => '4.1800',
+                'percent_change' => '0.48', 'currency' => 'MYR',
+            ]),
+        ]);
+
+        $out = app(MarketQuoteService::class)->fetch(['MYR=X']);
+
+        $this->assertSame(4.2, $out['MYR=X']['price']);
+        $this->assertEqualsWithDelta(0.48, $out['MYR=X']['change_pct'], 0.001);
+    }
+
+    public function test_no_fallback_without_key(): void
+    {
+        config(['services.twelvedata.key' => null]);
+        Http::fake([
+            'query1.finance.yahoo.com/*' => Http::response(null, 500),
+            'query2.finance.yahoo.com/*' => Http::response(null, 500),
+        ]);
+
+        $this->assertSame([], app(MarketQuoteService::class)->fetch(['MYR=X']));
+    }
+
     public function test_null_prev_close_yields_null_change(): void
     {
         Http::fake([

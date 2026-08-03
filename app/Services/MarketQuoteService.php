@@ -19,6 +19,16 @@ class MarketQuoteService
 {
     private const HOSTS = ['query1', 'query2'];
 
+    /** Yahoo symbol → Twelve Data symbol (independent fallback). */
+    private const TD_MAP = [
+        '^IXIC' => 'IXIC', '^GSPC' => 'SPX', '^DJI' => 'DJI',
+        '^JKSE' => 'JKSE', '^TWII' => 'TWII', '^KS11' => 'KS11',
+        '^NSEI' => 'NSEI', '^AEX' => 'AEX', '^N225' => 'N225',
+        '^FTSE' => 'UKX', '^FCHI' => 'FCHI', '^STI' => 'STI',
+        '^KLSE' => 'KLSE', 'MYR=X' => 'USD/MYR', 'GC=F' => 'XAU/USD',
+        'BZ=F' => 'UKOIL',
+    ];
+
     /**
      * GET the chart endpoint, trying each Yahoo host until one returns usable
      * JSON. Returns the decoded `chart.result.0` array, or null.
@@ -88,20 +98,66 @@ class MarketQuoteService
         $out = [];
         foreach ($symbols as $symbol) {
             $meta = $this->chart($symbol, ['interval' => '1d', 'range' => '1d'])['meta'] ?? null;
-            if (! $meta || ! isset($meta['regularMarketPrice'])) {
-                continue;   // both hosts failed / no price — skip, not fatal
+            if ($meta && isset($meta['regularMarketPrice'])) {
+                $price = (float) $meta['regularMarketPrice'];
+                $prev = isset($meta['chartPreviousClose']) ? (float) $meta['chartPreviousClose'] : null;
+                $out[$symbol] = [
+                    'price'      => $price,
+                    'prev_close' => $prev,
+                    'change_pct' => ($prev && $prev != 0.0) ? round(($price - $prev) / $prev * 100, 2) : null,
+                    'currency'   => $meta['currency'] ?? null,
+                ];
+
+                continue;
             }
 
-            $price = (float) $meta['regularMarketPrice'];
-            $prev = isset($meta['chartPreviousClose']) ? (float) $meta['chartPreviousClose'] : null;
-            $out[$symbol] = [
-                'price'      => $price,
-                'prev_close' => $prev,
-                'change_pct' => ($prev && $prev != 0.0) ? round(($price - $prev) / $prev * 100, 2) : null,
-                'currency'   => $meta['currency'] ?? null,
-            ];
+            // Yahoo missed this symbol on both hosts → independent fallback.
+            if ($td = $this->twelveData($symbol)) {
+                $out[$symbol] = $td;
+            }
         }
 
         return $out;
+    }
+
+    /**
+     * Twelve Data quote — independent second source. Dormant unless a key is
+     * configured and the symbol is mapped. Returns the same shape as fetch(),
+     * or null on any failure (rate limit, unmapped, no coverage).
+     *
+     * @return array{price: float, prev_close: ?float, change_pct: ?float, currency: ?string}|null
+     */
+    private function twelveData(string $symbol): ?array
+    {
+        $key = config('services.twelvedata.key');
+        $tdSymbol = self::TD_MAP[$symbol] ?? null;
+        if (! $key || ! $tdSymbol) {
+            return null;
+        }
+
+        try {
+            $res = Http::timeout(12)->get('https://api.twelvedata.com/quote', [
+                'symbol' => $tdSymbol,
+                'apikey' => $key,
+            ]);
+            $j = $res->json();
+            // Twelve Data signals errors with status=error / a code field.
+            if (! is_array($j) || ($j['status'] ?? null) === 'error' || ! isset($j['close'])) {
+                return null;
+            }
+
+            $price = (float) $j['close'];
+            $prev = isset($j['previous_close']) ? (float) $j['previous_close'] : null;
+
+            return [
+                'price'      => $price,
+                'prev_close' => $prev,
+                'change_pct' => isset($j['percent_change']) ? round((float) $j['percent_change'], 2)
+                    : (($prev && $prev != 0.0) ? round(($price - $prev) / $prev * 100, 2) : null),
+                'currency'   => $j['currency'] ?? null,
+            ];
+        } catch (Throwable $e) {
+            return null;
+        }
     }
 }

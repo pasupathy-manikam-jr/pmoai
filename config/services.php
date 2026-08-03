@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    // Independent market-quote fallback (free tier: 800 req/day, 8/min).
+    // Get a key at https://twelvedata.com; leave empty to keep it dormant.
+    'twelvedata' => [
+        'key' => env('TWELVEDATA_KEY'),
+    ],
+
 ];
