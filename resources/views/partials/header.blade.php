@@ -5,6 +5,8 @@
            class="{{ request()->routeIs('snapshots.index') ? 'active' : '' }}">Analyses</a>
         <a href="{{ route('simulator') }}"
            class="{{ request()->routeIs('simulator') ? 'active' : '' }}">Simulator</a>
+        <a href="{{ route('rebalance') }}"
+           class="{{ request()->routeIs('rebalance') ? 'active' : '' }}">Rebalance</a>
         <a href="{{ route('snapshots.create') }}"
            class="{{ request()->routeIs('snapshots.create') ? 'active' : '' }}">New analysis</a>
         <a href="{{ route('dashboard') }}"

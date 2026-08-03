@@ -665,6 +665,29 @@ class SnapshotController extends Controller
         return view('snapshots.report', compact('snapshot', 'held', 'totInv', 'totVal'));
     }
 
+    /**
+     * Rebalance simulator — set a target weight per held fund and get the PMO
+     * switches/redemptions to reach it plus the real sales-charge cost.
+     */
+    public function rebalance()
+    {
+        $analysis = app(\App\Services\FundAnalysis::class);
+        $held = FundDetail::whereRaw("payload->'position'->>'current_value' is not null")
+            ->get()
+            ->map(function ($d) use ($analysis) {
+                [$code, $hist, $fund] = $analysis->resolve($d);
+
+                return [
+                    'name'  => $fund?->name ?? $d->name,
+                    'code'  => $fund?->code ?? $code ?? '',
+                    'value' => (float) $d->payload['position']['current_value'],
+                ];
+            })
+            ->sortByDesc('value')->values();
+
+        return view('snapshots.rebalance', compact('held'));
+    }
+
     public function simulator()
     {
         $funds = Fund::orderBy('name')->get();
