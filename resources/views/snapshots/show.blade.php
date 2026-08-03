@@ -463,6 +463,7 @@
         @if ($stress)
             <div class="stress-box">
                 <span class="stress-h">🎯 Stress test — projected hit if…</span>
+                <p class="stress-intro">If the market has a bad day, how much would <em>you</em> lose and which fund hurts most? A what-if, not a prediction — each fund's real PMO geography × the shock.</p>
                 <table class="stress-tbl">
                     @foreach ($stress as $s)
                         <tr>
@@ -477,6 +478,7 @@
             <style>
                 .stress-box { border: 1px solid #eee; border-radius: 6px; padding: 8px 10px; margin: 6px 0; }
                 .stress-h { font-size: 12px; font-weight: 600; color: #444; }
+                .stress-intro { font-size: 11px; color: #777; margin: 3px 0 4px; line-height: 1.4; }
                 .stress-tbl { width: 100%; border-collapse: collapse; font-size: 12px; margin: 4px 0; }
                 .stress-tbl td { padding: 3px 6px; border-bottom: 1px solid #f2f2f2; }
                 .stress-worst { color: #999; text-align: right; }
