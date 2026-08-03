@@ -303,13 +303,51 @@
         @endphp
         <p class="ps-cutoff ps-cutoff-{{ $cutTone }}">🕓 {{ $cutMsg }} <small>(public holidays excluded — check the calendar)</small></p>
 
-        @php $prsYr = now('Asia/Kuala_Lumpur')->year; @endphp
-        <p class="ps-cutoff {{ $prsThisYear >= 3000 ? 'ps-cutoff-open' : 'ps-cutoff-warn' }}">
-            🏦 PRS tax relief {{ $prsYr }}: RM {{ number_format($prsThisYear, 0) }} / 3,000
-            {{ $prsThisYear >= 3000 ? '— done ✓' : '— contribute before 31 Dec for up to ~RM900 tax saved' }}
-            @if ($prsXirr !== null)
-                <small>· your PRS money-weighted return since 2019: {{ $prsXirr >= 0 ? '+' : '' }}{{ $prsXirr }}%/yr</small>
+        @php
+            $prsYr = now('Asia/Kuala_Lumpur')->year;
+            // Include submitted-but-unprocessed PRS contributions so the cap
+            // reflects money already committed this year, not just settled.
+            $prsPend = $pending->where('scheme', 'prs')
+                ->filter(fn ($p) => optional($p->submitted_at)->year === $prsYr)
+                ->sum(fn ($p) => (float) $p->amount);
+            $prsTotal = (float) $prsThisYear + $prsPend;
+            $prsOver = $prsTotal - 3000;
+            $prsTone = $prsTotal < 3000 ? 'warn' : ($prsOver > 0 ? 'off' : 'open');
+        @endphp
+        <p class="ps-cutoff ps-cutoff-{{ $prsTone }}">
+            🏦 PRS tax relief {{ $prsYr }}: RM {{ number_format($prsTotal, 0) }} / 3,000
+            @if ($prsPend > 0)<small>(incl. RM {{ number_format($prsPend, 0) }} pending)</small>@endif
+            @if ($prsTotal < 3000)
+                — contribute RM {{ number_format(3000 - $prsTotal, 0) }} more before 31 Dec for up to ~RM900 tax saved
+            @elseif ($prsOver > 0)
+                — ⚠ over the RM3,000 cap: RM {{ number_format($prsOver, 0) }} has NO tax relief this year (relief is capped at RM3,000/yr, not per fund)
+            @else
+                — done ✓ (RM3,000 relief maxed)
             @endif
+            @if ($prsXirr !== null)
+                <small>· your PRS return since 2019: {{ $prsXirr >= 0 ? '+' : '' }}{{ $prsXirr }}%/yr</small>
+            @endif
+        </p>
+
+        @php
+            // Concentration: single-fund weight of the whole book. >30% = one
+            // fund's drawdown swings the portfolio; 25–30% = watch.
+            $conc = $portfolio->map(fn ($h) => ['name' => $h['name'], 'w' => $ptVal > 0 ? $h['value'] / $ptVal * 100 : 0])
+                ->sortByDesc('w')->values();
+            $topW = $conc->first()['w'] ?? 0;
+            $over = $conc->filter(fn ($c) => $c['w'] >= 30);
+            $concTone = $topW >= 30 ? 'off' : ($topW >= 25 ? 'warn' : 'open');
+            $shortN = fn ($n) => (string) \Illuminate\Support\Str::of($n)->after('PUBLIC ')->limit(20);
+        @endphp
+        <p class="ps-cutoff ps-cutoff-{{ $concTone }}">
+            📊 Concentration:
+            @if ($over->isNotEmpty())
+                ⚠ {{ collect($over)->map(fn ($c) => $shortN($c['name']).' '.number_format($c['w'], 0).'%')->implode(', ') }}
+                over 30% of the book — one fund's drop moves the whole portfolio
+            @else
+                largest position {{ $shortN($conc->first()['name'] ?? '—') }} at {{ number_format($topW, 1) }}% — within a 30% comfort band
+            @endif
+            <small>· top: @foreach ($conc->take(4) as $c){{ $shortN($c['name']) }} {{ number_format($c['w'], 0) }}%@unless ($loop->last) · @endunless @endforeach</small>
         </p>
 
 
