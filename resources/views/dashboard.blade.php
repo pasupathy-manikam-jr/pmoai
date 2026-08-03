@@ -13,9 +13,14 @@
         $lastFetch = optional($quotes->max('fetched_at'));
     @endphp
     <p class="idx-intro">Live quotes (Yahoo) above each chart, tagged with the holding each drives.
-        @if ($lastFetch)Updated {{ $lastFetch->diffForHumans() }} — run <code>pmoai:fetch-quotes</code> to refresh.
-        @else No quotes yet — run <code>pmoai:fetch-quotes</code>.@endif
-        The chart below is TradingView (may lag for some Asian exchanges).</p>
+        @if ($lastFetch)Updated {{ $lastFetch->diffForHumans() }}.@else No quotes yet.@endif
+        The chart below is TradingView (may lag for some Asian exchanges).
+        <form method="POST" action="{{ route('quotes.fetch') }}" style="display:inline">
+            @csrf
+            <button type="submit" class="idx-refresh">↻ Refresh quotes</button>
+        </form>
+        @if (session('status'))<span class="idx-ok">✓ {{ session('status') }}</span>@endif
+    </p>
 
     <div class="idx-grid">
         @foreach ($indices as $ix)
@@ -59,6 +64,10 @@
 
     <style>
         .idx-intro { color: #666; margin: 0 0 16px; font-size: 13px; }
+        .idx-refresh { margin-left: 8px; padding: 3px 10px; border: 1px solid #c8102e; background: #fff;
+            color: #c8102e; border-radius: 5px; cursor: pointer; font-size: 12px; }
+        .idx-refresh:hover { background: #c8102e; color: #fff; }
+        .idx-ok { margin-left: 8px; color: #1a7; font-size: 12px; }
         .idx-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));

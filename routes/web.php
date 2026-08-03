@@ -27,6 +27,12 @@ Route::get('/simulator', [SnapshotController::class, 'simulator'])->name('simula
 
 Route::view('/dashboard', 'dashboard')->name('dashboard');
 
+// Refresh live market quotes on demand (button on the dashboard).
+Route::post('/quotes/fetch', function () {
+    \Illuminate\Support\Facades\Artisan::call('pmoai:fetch-quotes');
+    return redirect()->route('dashboard')->with('status', 'Quotes refreshed.');
+})->name('quotes.fetch');
+
 Route::get('/details/{detail}', [FundDetailController::class, 'show'])->name('details.show');
 Route::post('/details/{detail}/analyze', [FundDetailController::class, 'analyze'])->name('details.analyze');
 Route::get('/details/{detail}/status', [FundDetailController::class, 'status'])->name('details.status');
