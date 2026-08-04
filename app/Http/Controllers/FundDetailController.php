@@ -16,10 +16,28 @@ class FundDetailController extends Controller
 
         $factsheet = $analysis->factsheetFor($code);
 
+        // This fund's own transactions — plotted as buy/sell markers on the
+        // price chart. Units sign gives direction (in vs out).
+        $trades = $code
+            ? \App\Models\Transaction::whereRaw('upper(fund_code) = ?', [strtoupper($code)])
+                ->orderBy('trans_date')
+                ->get()
+                ->map(fn ($t) => [
+                    'date'  => $t->trans_date->toDateString(),
+                    'type'  => $t->trans_type,
+                    'price' => $t->price !== null ? (float) $t->price : null,
+                    'units' => (float) $t->units,
+                    'net'   => (float) $t->net,
+                    'in'    => (float) $t->units >= 0,
+                ])
+                ->filter(fn ($t) => $t['price'] !== null && $t['price'] > 0)
+                ->values()
+            : collect();
+
         // Analysis state changes out-of-band (queue job) — never let the
         // browser serve this page from cache.
         return response()
-            ->view('details.show', compact('detail', 'snapshot', 'priceHistory', 'fund', 'factsheet'))
+            ->view('details.show', compact('detail', 'snapshot', 'priceHistory', 'fund', 'factsheet', 'trades'))
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
     }
 

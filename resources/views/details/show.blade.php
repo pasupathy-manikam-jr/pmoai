@@ -264,6 +264,9 @@
                 {{ $first['date'] }} → {{ $last['date'] }} ·
                 {{ $n }} points · range {{ number_format($min, 4) }}–{{ number_format($max, 4) }} ·
                 <span class="{{ $delta >= 0 ? 'pos' : 'neg' }}">{{ $delta >= 0 ? '+' : '' }}{{ $delta }}%</span>
+                @if (($trades ?? collect())->isNotEmpty())
+                    · <span style="color:#1a7f5a">▲ your buys</span> <span style="color:#c0392b">▼ your sells</span> <small>(hover a marker)</small>
+                @endif
             </p>
             <div class="chart-wrap" style="position:relative">
                 <svg viewBox="0 0 {{ $W }} {{ $H }}" class="price-chart"
@@ -287,6 +290,34 @@
                                 data-date="{{ $pt['date'] }}"
                                 data-price="{{ number_format($pt['price'], 4) }}"
                                 data-delta="{{ $dp }}" />
+                    @endforeach
+                    @php
+                        // Your trades on this fund → markers at the nearest price
+                        // point's x, at the trade's own execution price (clamped
+                        // to the chart range so the marker stays on canvas).
+                        $tradeMarks = [];
+                        foreach (($trades ?? collect()) as $t) {
+                            $bestI = null; $bestDiff = null;
+                            foreach ($pts as $i => $p) {
+                                $diff = abs(strtotime($p['date']) - strtotime($t['date']));
+                                if ($bestDiff === null || $diff < $bestDiff) { $bestDiff = $diff; $bestI = $i; }
+                            }
+                            if ($bestI === null) continue;
+                            $pp = max($min, min($max, $t['price']));
+                            $tradeMarks[] = ['x' => $x($bestI), 'y' => $y($pp)] + $t;
+                        }
+                    @endphp
+                    @foreach ($tradeMarks as $m)
+                        @php
+                            $mx = round($m['x'], 1); $my = round($m['y'], 1);
+                            $col = $m['in'] ? '#1a7f5a' : '#c0392b';
+                            $tri = $m['in']
+                                ? ($mx).','.($my - 7).' '.($mx - 5).','.($my + 2).' '.($mx + 5).','.($my + 2)
+                                : ($mx).','.($my + 7).' '.($mx - 5).','.($my - 2).' '.($mx + 5).','.($my - 2);
+                        @endphp
+                        <polygon points="{{ $tri }}" fill="{{ $col }}" stroke="#fff" stroke-width="0.8">
+                            <title>{{ $m['in'] ? 'BUY' : 'SELL' }} · {{ $m['type'] }} · {{ $m['date'] }} · {{ number_format(abs($m['units']), 0) }} units @ RM{{ number_format($m['price'], 4) }}</title>
+                        </polygon>
                     @endforeach
                 </svg>
                 <div class="chart-tip" hidden>
