@@ -320,10 +320,19 @@ class SnapshotController extends Controller
         // settled ledger). Shown at the top of the Transactions tab.
         $pending = \App\Models\PendingTransaction::orderByDesc('submitted_at')->get();
 
+        // Cost attribution — real charges paid to PMO across every transaction.
+        $allTx = \App\Models\Transaction::all();
+        $attribution = [
+            'sales_charge' => (float) $allTx->sum(fn ($t) => (float) $t->charge_amt),
+            'sst'          => (float) $allTx->sum(fn ($t) => (float) $t->sst),
+            'tx_count'     => $allTx->count(),
+            'charged_tx'   => $allTx->filter(fn ($t) => (float) $t->charge_amt > 0)->count(),
+        ];
+
         return view('snapshots.show', compact(
             'snapshot', 'funds', 'detailMap', 'detailByCode', 'ideas', 'portfolio',
             'alerts', 'history', 'review', 'past', 'prsThisYear', 'prsXirr',
-            'transactions', 'pending', 'backtest',
+            'transactions', 'pending', 'backtest', 'attribution',
         ));
     }
 

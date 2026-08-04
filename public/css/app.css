@@ -298,6 +298,19 @@ small{color:#666}
     font:700 .95rem 'Archivo',sans-serif; letter-spacing:.01em;
     margin:0 0 4px; padding:0; border:0;
 }
+/* collapsible section headers (details/summary) */
+.page-detail .fd-card-sum{
+    font:700 .95rem 'Archivo',sans-serif; letter-spacing:.01em;
+    cursor:pointer; list-style:none; user-select:none;
+    display:flex; align-items:center; gap:7px; margin:0;
+}
+.page-detail .fd-card-sum::-webkit-details-marker{display:none}
+.page-detail .fd-card-sum::before{
+    content:'▸'; font-size:.7rem; color:var(--muted); transition:transform .12s ease;
+}
+.page-detail details.fd-card[open] > .fd-card-sum::before{transform:rotate(90deg)}
+.page-detail details.fd-card[open] > .fd-card-sum{margin-bottom:10px}
+.page-detail .fd-card-sum:hover{color:var(--accent,#c8102e)}
 .page-detail .fd-sub{margin:0 0 8px; font:400 .75rem 'IBM Plex Mono',monospace; color:var(--muted)}
 .page-detail .fd-grid-label{margin:26px 0 10px}
 .page-detail .fd-grid{

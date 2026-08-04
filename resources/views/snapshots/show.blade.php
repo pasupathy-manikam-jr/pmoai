@@ -432,6 +432,23 @@
             </table>
         </div>
 
+        @if ($attribution['tx_count'] > 0)
+            @php $feeTot = $attribution['sales_charge'] + $attribution['sst']; @endphp
+            <div class="stress-box">
+                <span class="stress-h">🧾 Cost &amp; return attribution</span>
+                <p class="stress-intro">Where your money stands and what it cost. Fees are the real sales charges + SST from every transaction — the cumulative price of your buying and switching.</p>
+                <table class="stress-tbl">
+                    <tr><td>Invested (cost basis)</td><td class="r">RM {{ number_format($ptInv, 0) }}</td></tr>
+                    <tr><td>Current value</td><td class="r">RM {{ number_format($ptVal, 0) }}</td></tr>
+                    <tr><td>Paper gain / loss</td><td class="r {{ $ptPl >= 0 ? 'pos' : 'neg' }}">{{ $ptPl >= 0 ? '+' : '−' }}RM {{ number_format(abs($ptPl), 0) }} ({{ number_format($ptPl / max($ptInv, 1) * 100, 1) }}%)</td></tr>
+                    <tr><td>Sales charges paid to PMO</td><td class="r neg">RM {{ number_format($attribution['sales_charge'], 2) }}</td></tr>
+                    <tr><td>SST paid</td><td class="r neg">RM {{ number_format($attribution['sst'], 2) }}</td></tr>
+                    <tr><td><b>Total fees to PMO (all-time)</b></td><td class="r neg"><b>RM {{ number_format($feeTot, 2) }}</b> <span class="stress-worst">({{ number_format($feeTot / max($ptVal, 1) * 100, 2) }}% of book)</span></td></tr>
+                </table>
+                <small class="ps-sub">{{ $attribution['charged_tx'] }} of {{ $attribution['tx_count'] }} transactions carried a charge. Same-series switches after 90 days are free — these fees came from cash→equity buys, cross-series moves and early switches.</small>
+            </div>
+        @endif
+
         @if ($portfolio->isNotEmpty())
             @php
                 $palette = ['#c8102e', '#1a7f5a', '#2a6fc9', '#e0a020', '#8e44ad', '#16a085', '#d35400', '#7f8c8d', '#c0392b', '#2980b9'];

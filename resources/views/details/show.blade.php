@@ -125,7 +125,7 @@
         @endif
     </header>
 
-    <section id="ai-analysis" class="fd-ai {{ $verdict ? 'has-verdict v-'.strtolower($verdict) : '' }}">
+    <div id="ai-analysis" class="fd-ai {{ $verdict ? 'has-verdict v-'.strtolower($verdict) : '' }}">
         <div class="fd-ai-top">
             <div class="fd-ai-body">
                 <p class="fd-eyebrow">AI analysis</p>
@@ -191,7 +191,7 @@
             upd();
         })();
         </script>
-    </section>
+    </div>
 
     @php
         $chatN = count($p['chat'] ?? []);
@@ -258,8 +258,8 @@
                 ? round(($last['price'] - $first['price']) / $first['price'] * 100, 2)
                 : 0;
         @endphp
-        <section class="fd-card fd-span">
-            <h2>Price history</h2>
+        <details class="fd-card fd-span" open>
+            <summary class="fd-card-sum">Price history</summary>
             <p class="fd-sub">
                 {{ $first['date'] }} → {{ $last['date'] }} ·
                 {{ $n }} points · range {{ number_format($min, 4) }}–{{ number_format($max, 4) }} ·
@@ -298,8 +298,8 @@
                         $tradeMarks = [];
                         foreach (($trades ?? collect()) as $t) {
                             $bestI = null; $bestDiff = null;
-                            foreach ($pts as $i => $p) {
-                                $diff = abs(strtotime($p['date']) - strtotime($t['date']));
+                            foreach ($pts as $i => $pt) {
+                                $diff = abs(strtotime($pt['date']) - strtotime($t['date']));
                                 if ($bestDiff === null || $diff < $bestDiff) { $bestDiff = $diff; $bestI = $i; }
                             }
                             if ($bestI === null) continue;
@@ -360,7 +360,7 @@
                 });
             })();
             </script>
-        </section>
+        </details>
     @endif
 
     @if ($factsheet && $factsheet->calendar_returns)
@@ -388,8 +388,8 @@
                 $cy = fn ($v) => $cPadT + $cIh - (($v - $cMin) / $cSpan) * $cIh;
                 $y0 = $cy(0);
             @endphp
-            <section class="fd-card fd-span">
-                <h2>Calendar-year returns vs benchmark</h2>
+            <details class="fd-card fd-span">
+                <summary class="fd-card-sum">Calendar-year returns vs benchmark</summary>
                 <p class="fd-sub">{{ $factsheet->period }} factsheet · hover bars for values</p>
                 <div class="chart-wrap">
                     <svg viewBox="0 0 {{ $cW }} {{ $cH }}" class="price-chart" role="img"
@@ -437,7 +437,7 @@
                     <span class="lg"><i style="background:#bb2018"></i>fund, loss year</span>
                     <span class="lg"><i style="background:#9aa0a6"></i>benchmark</span>
                 </p>
-            </section>
+            </details>
         @endif
     @endif
 
@@ -449,8 +449,8 @@
                 $fmtNum = fn ($v) => $v === null ? '—' : number_format((float) $v, 0);
             @endphp
 
-            <section class="fd-card">
-                <h2>Key facts</h2>
+            <details class="fd-card">
+                <summary class="fd-card-sum">Key facts</summary>
                 <table class="kv">
                     <tr><th>Fund size (NAV)</th><td>{{ $fmtMyr($factsheet->fund_size_nav_myr) }}</td></tr>
                     <tr><th>Units outstanding</th><td>{{ $fmtNum($factsheet->fund_size_units) }}</td></tr>
@@ -464,11 +464,11 @@
                         <tr><th>Foreign exposure</th><td>{{ $factsheet->fx_foreign_total_pct }}%</td></tr>
                     @endif
                 </table>
-            </section>
+            </details>
 
             @if ($factsheet->benchmark_returns)
-                <section class="fd-card">
-                    <h2>Fund vs benchmark (%)</h2>
+                <details class="fd-card">
+                    <summary class="fd-card-sum">Fund vs benchmark (%)</summary>
                     <table>
                         <tr><th>Horizon</th><th>Fund</th><th>Bench</th><th>Fund ann.</th><th>Bench ann.</th></tr>
                         @foreach ($factsheet->benchmark_returns as $key => $r)
@@ -481,67 +481,67 @@
                             </tr>
                         @endforeach
                     </table>
-                </section>
+                </details>
             @endif
 
             @if ($factsheet->asset_allocation)
-                <section class="fd-card">
-                    <h2>Asset allocation</h2>
+                <details class="fd-card">
+                    <summary class="fd-card-sum">Asset allocation</summary>
                     <table class="kv">
                         @foreach ($factsheet->asset_allocation as $type => $pct)
                             <tr><th class="w-auto">{{ $type }}</th><td>{{ $pct }}%</td></tr>
                         @endforeach
                     </table>
-                </section>
+                </details>
             @endif
 
             @if ($factsheet->fx_exposure)
-                <section class="fd-card">
-                    <h2>FX exposure</h2>
+                <details class="fd-card">
+                    <summary class="fd-card-sum">FX exposure</summary>
                     <table class="kv">
                         @foreach ($factsheet->fx_exposure as $ccy => $pct)
                             <tr><th class="w-auto">{{ $ccy }}</th><td>{{ $pct }}%</td></tr>
                         @endforeach
                     </table>
-                </section>
+                </details>
             @endif
 
             @if ($factsheet->geo_foreign)
-                <section class="fd-card">
-                    <h2>Geography (foreign)</h2>
+                <details class="fd-card">
+                    <summary class="fd-card-sum">Geography (foreign)</summary>
                     <table class="kv">
                         @foreach ($factsheet->geo_foreign as $country => $pct)
                             <tr><th class="w-auto">{{ $country }}</th><td>{{ $pct }}%</td></tr>
                         @endforeach
                     </table>
-                </section>
+                </details>
             @endif
 
             @if ($factsheet->top_sectors)
-                <section class="fd-card">
-                    <h2>Top sectors</h2>
+                <details class="fd-card">
+                    <summary class="fd-card-sum">Top sectors</summary>
                     <table class="kv">
                         @foreach ($factsheet->top_sectors as $sector => $pct)
                             <tr><th class="w-auto">{{ $sector }}</th><td>{{ $pct }}%</td></tr>
                         @endforeach
                     </table>
-                </section>
+                </details>
             @endif
 
             @if ($factsheet->top_holdings)
-                <section class="fd-card">
-                    <h2>Top holdings</h2>
+                <details class="fd-card">
+                    <summary class="fd-card-sum">Top holdings</summary>
                     <ol class="fd-holdings">
                         @foreach ($factsheet->top_holdings as $h)
                             <li>{{ $h }}</li>
                         @endforeach
                     </ol>
-                </section>
+                </details>
             @endif
 
             @if ($factsheet->distributions)
-                <section class="fd-card">
-                    <h2>Distributions</h2>
+                <details class="fd-card">
+                    <summary class="fd-card-sum">Distributions</summary>
                     <table>
                         <tr><th>Period</th><th>Sen</th><th>Date</th><th>Yield %</th></tr>
                         @foreach ($factsheet->distributions as $d)
@@ -553,7 +553,7 @@
                             </tr>
                         @endforeach
                     </table>
-                </section>
+                </details>
             @endif
 
             @if ($factsheet->calendar_returns && ! empty($factsheet->calendar_returns['years']))
@@ -563,8 +563,8 @@
                     $fundPct = $cal['fund_pct'] ?? [];
                     $benchPct = $cal['bench_pct'] ?? [];
                 @endphp
-                <section class="fd-card">
-                    <h2>Calendar returns table (%)</h2>
+                <details class="fd-card">
+                    <summary class="fd-card-sum">Calendar returns table (%)</summary>
                     <table>
                         <tr><th>Year</th>@foreach ($years as $y)<th>{{ $y }}</th>@endforeach</tr>
                         <tr>
@@ -580,7 +580,7 @@
                             @endforeach
                         </tr>
                     </table>
-                </section>
+                </details>
             @endif
         </div>
     @endif
