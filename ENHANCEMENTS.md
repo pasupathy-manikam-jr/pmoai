@@ -15,6 +15,11 @@ RM3,000 relief). No generic-investing-app features, no imagined metrics, no
 specific piece of captured PMO data or a documented PMO rule, it doesn't belong
 here.
 
+**Status (2026-08-05):** Phases 0, 1, 2, 4, 5 ✅ shipped · Phase 3 skipped · Phase 6
+mostly ✅ (parser fix left) · Phase 7 ✅ all four · Phase 8 core ✅ (income +
+exposure-over-time data-blocked) · Phase 9 partial · Phase 10 open.
+_Superseded line below:_ Phase 6 was "in progress" on 08-03.
+
 **Status (2026-08-03):** Phases 0, 1, 2, 4, 5 ✅ shipped · Phase 3 skipped (reach
 features — not needed for a local, single-user app) · Phase 6 🚧 in progress
 (sector look-through + stock overlap shipped; fx parser + risk-adjusted left) ·
@@ -117,32 +122,32 @@ The geography work proved the pattern; apply it to the other captured blocks.
 - **Factsheet fx/geo parser fix** — teach `MfrParser` the e-Series/foreign
   layout so `fx_exposure`/`geo_foreign` populate for held funds; upgrades the
   currency panel from estimate to real and feeds the above from a second source.
-- **Risk-adjusted view** — pair each fund's return with its volatility factor
+- ✅ **Risk-adjusted view** — pair each fund's return with its volatility factor
   (already captured) → a simple return-per-unit-of-risk ranking.
 
 ---
 
 ## Phase 7 — decision support & simulation
 
-- **Whole-portfolio rebalance simulator** — beyond the single-switch tool: set a
+- ✅ **Whole-portfolio rebalance simulator** — beyond the single-switch tool: set a
   target allocation, get the exact set of switches/redemptions, total fees, and
   the tax/charge cost to get there.
-- **Stress test** — "US tech −20% / gold −10% / ringgit +5%" → projected
+- ✅ **Stress test** — "US tech −20% / gold −10% / ringgit +5%" → projected
   portfolio value and which funds hurt most, using real geo + currency exposure.
 - **PRS optimiser** — track the RM3,000/yr relief across years, warn on
   over-contribution (done) and suggest the tax-optimal timing/fund.
-- **Cash deployment planner** — given the idle e-Cash, rank where deploying it
+- ✅ **Cash deployment planner** — given the idle e-Cash, rank where deploying it
   (fees + buy-low triggers + concentration limits) does the most good.
 
 ---
 
 ## Phase 8 — history, attribution & benchmarking
 
-- **Full per-fund NAV history** — a real chart (not just a sparkline) from the
+- ✅ **Full per-fund NAV history** — a real chart (not just a sparkline) from the
   stored price history, with your buy/sell markers overlaid.
-- **Return attribution** — split portfolio growth into contributions vs market
+- ✅ **Return attribution** (fees split shipped; contributions-vs-market over time pending) — split portfolio growth into contributions vs market
   gain vs fees, over time.
-- **Benchmark comparison** — your money-weighted return vs KLCI / a blended
+- ✅ **Benchmark comparison** — your money-weighted return vs KLCI / a blended
   benchmark of your actual exposures.
 - **Income view** — distribution (RII/DP) history + a forward income estimate
   once non-PRS distributions are captured.
@@ -161,7 +166,7 @@ The geography work proved the pattern; apply it to the other captured blocks.
   disagreements > X%.
 - **Reconciliation guard** — auto-compare the app's total against the latest
   statement total and flag any drift (would have caught the month-end overwrite).
-- **Verdict-accuracy tracker** — persist the backtest over time; show whether the
+- ✅ **Verdict-accuracy tracker** — persist the backtest over time; show whether the
   AI's calls are getting better and weight advice by its hit rate.
 - **Wider test coverage** — `IngestStatements` (extract-to-static like the float
   parser), `PortfolioIndices`, the simulator math (port the JS to a testable
