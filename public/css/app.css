@@ -277,6 +277,16 @@ small{color:#666}
 /* per-fund chat */
 .page-detail .fd-chat{margin-bottom:26px}
 .page-detail .fd-chat-log{display:flex;flex-direction:column;gap:10px;margin:4px 0 14px}
+.page-detail .msg-row{display:flex;align-items:center;gap:6px}
+.page-detail .msg-row.row-user{justify-content:flex-end}
+.page-detail .msg-row.row-ai{justify-content:flex-start;flex-direction:row-reverse}
+.page-detail .msg-del{margin:0;line-height:0}
+.page-detail .msg-del button{
+    border:1px solid var(--line);background:var(--paper);color:var(--muted);cursor:pointer;
+    padding:3px 7px;font-size:.75rem;border-radius:6px;line-height:1;
+    transition:color .12s,background .12s,border-color .12s;
+}
+.page-detail .msg-del button:hover{color:#fff;background:var(--crimson);border-color:var(--crimson)}
 .page-detail .msg{max-width:78%;padding:9px 13px;border-radius:10px;font-size:.9rem;line-height:1.55}
 .page-detail .msg-user{align-self:flex-end;background:#16181d;color:#f5f5f2;border-bottom-right-radius:3px;white-space:pre-wrap}
 .page-detail .msg-ai{align-self:flex-start;background:var(--paper);border:1px solid var(--line);border-bottom-left-radius:3px}

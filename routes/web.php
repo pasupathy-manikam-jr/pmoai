@@ -40,3 +40,4 @@ Route::get('/details/{detail}', [FundDetailController::class, 'show'])->name('de
 Route::post('/details/{detail}/analyze', [FundDetailController::class, 'analyze'])->name('details.analyze');
 Route::get('/details/{detail}/status', [FundDetailController::class, 'status'])->name('details.status');
 Route::post('/details/{detail}/chat', [FundDetailController::class, 'chat'])->name('details.chat');
+Route::post('/details/{detail}/chat/delete', [FundDetailController::class, 'deleteChat'])->name('details.chat.delete');

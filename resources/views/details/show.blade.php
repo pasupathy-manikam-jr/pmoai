@@ -198,17 +198,25 @@
         $askDate = ! empty($p['ai']['at']) ? \Illuminate\Support\Carbon::parse($p['ai']['at'])->format('d M Y, H:i') : null;
         $sumMeta = trim(($chatN ? "· {$chatN} Q&A " : '').($askDate ? "· analysis {$askDate}" : ''));
     @endphp
-    <details id="ai-chat" class="fd-card fd-chat" {{ (($p['chat_status'] ?? null) === 'running' || ! empty($p['chat_error'])) ? 'open' : '' }}>
+    <details id="ai-chat" class="fd-card fd-chat" {{ (! empty($p['chat']) || ($p['chat_status'] ?? null) === 'running' || ! empty($p['chat_error'])) ? 'open' : '' }}>
         <summary class="fd-eyebrow">Ask about this fund <span class="fd-sum-meta">{{ $sumMeta }}</span></summary>
 
         @if (! empty($p['chat']))
             <div class="fd-chat-log">
-                @foreach ($p['chat'] as $m)
-                    @if (($m['role'] ?? '') === 'user')
-                        <div class="msg msg-user">{{ $m['text'] }}</div>
-                    @else
-                        <div class="msg msg-ai">{!! $mdLite((string) ($m['text'] ?? '')) !!}</div>
-                    @endif
+                @foreach ($p['chat'] as $i => $m)
+                    <div class="msg-row {{ ($m['role'] ?? '') === 'user' ? 'row-user' : 'row-ai' }}">
+                        @if (($m['role'] ?? '') === 'user')
+                            <div class="msg msg-user">{{ $m['text'] }}</div>
+                        @else
+                            <div class="msg msg-ai">{!! $mdLite((string) ($m['text'] ?? '')) !!}</div>
+                        @endif
+                        <form method="POST" action="{{ route('details.chat.delete', $detail) }}" class="msg-del"
+                              data-confirm="Delete this message?" data-confirm-yes="Delete">
+                            @csrf
+                            <input type="hidden" name="i" value="{{ $i }}">
+                            <button type="submit" title="Delete message" aria-label="Delete message">✕</button>
+                        </form>
+                    </div>
                 @endforeach
             </div>
         @endif

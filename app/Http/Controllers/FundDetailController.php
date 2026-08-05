@@ -115,6 +115,25 @@ class FundDetailController extends Controller
     }
 
     /**
+     * Delete one chat message by its index in payload.chat. Used by the
+     * per-row ✕ button; renumbering is automatic since chat is a plain list.
+     */
+    public function deleteChat(\Illuminate\Http\Request $request, FundDetail $detail)
+    {
+        $data = $request->validate(['i' => ['required', 'integer', 'min:0']]);
+
+        $payload = $detail->payload ?? [];
+        $chat = $payload['chat'] ?? [];
+        if (array_key_exists($data['i'], $chat)) {
+            array_splice($chat, $data['i'], 1);
+            $payload['chat'] = $chat;
+            $detail->update(['payload' => $payload]);
+        }
+
+        return redirect()->route('details.show', $detail)->withFragment('ai-chat');
+    }
+
+    /**
      * Lightweight poll target for the in-page progress indicators.
      */
     public function status(FundDetail $detail)

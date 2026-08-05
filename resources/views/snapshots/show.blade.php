@@ -337,10 +337,10 @@
                 $cutTone = 'off';
             }
         @endphp
-        <div class="stress-box">
-            <span class="stress-h">🕓 Order cut-off</span>
+        <details class="stress-box">
+            <summary class="stress-h">🕓 Order cut-off</summary>
             <p class="stress-intro" style="margin:2px 0 0"><span class="{{ $cutTone === 'open' ? 'pos' : ($cutTone === 'warn' ? '' : 'neg') }}">{{ $cutMsg }}</span> — public holidays excluded, check the calendar.</p>
-        </div>
+        </details>
 
         @php
             $prsYr = now('Asia/Kuala_Lumpur')->year;
@@ -353,8 +353,8 @@
             $prsOver = $prsTotal - 3000;
             $prsTone = $prsTotal < 3000 ? 'warn' : ($prsOver > 0 ? 'off' : 'open');
         @endphp
-        <div class="stress-box">
-            <span class="stress-h">🏦 PRS tax relief {{ $prsYr }}</span>
+        <details class="stress-box">
+            <summary class="stress-h">🏦 PRS tax relief {{ $prsYr }}</summary>
             <table class="stress-tbl">
                 <tr><td>Contributed this year</td><td class="r">RM {{ number_format($prsTotal, 0) }}@if ($prsPend > 0) <span class="stress-worst">(incl. RM{{ number_format($prsPend, 0) }} pending)</span>@endif</td></tr>
                 <tr><td>Tax-relief cap</td><td class="r">RM 3,000 / year</td></tr>
@@ -370,7 +370,7 @@
                 @endif
             </table>
             @if ($prsOver > 0)<small class="ps-sub">Relief is capped per person per year (RM3,000), NOT per fund — the excess has no tax benefit this year.</small>@endif
-        </div>
+        </details>
 
         @php
             // Concentration: single-fund weight of the whole book. >30% = one
@@ -382,8 +382,8 @@
             $concTone = $topW >= 30 ? 'off' : ($topW >= 25 ? 'warn' : 'open');
             $shortN = fn ($n) => (string) \Illuminate\Support\Str::of($n)->after('PUBLIC ');
         @endphp
-        <div class="stress-box">
-            <span class="stress-h">📊 Concentration @if ($over->isNotEmpty())<span class="neg">⚠ over 30%</span>@endif</span>
+        <details class="stress-box">
+            <summary class="stress-h">📊 Concentration @if ($over->isNotEmpty())<span class="neg">⚠ over 30%</span>@endif</summary>
             <p class="stress-intro">Single-fund weight of the whole book. Over 30% means one fund's drop swings the whole portfolio.</p>
             <table class="stress-tbl">
                 <tr><th>Fund</th><th class="r">Weight</th></tr>
@@ -394,7 +394,7 @@
                     </tr>
                 @endforeach
             </table>
-        </div>
+        </details>
 
         @php
             // Currency exposure — ESTIMATED from each fund's geography (held
@@ -417,8 +417,8 @@
             $ccyTot = $ccy->sum() ?: 1;
             $foreignPct = 100 - ($ccy['MYR'] ?? 0) / $ccyTot * 100;
         @endphp
-        <div class="stress-box">
-            <span class="stress-h">💱 Currency exposure (estimated)</span>
+        <details class="stress-box">
+            <summary class="stress-h">💱 Currency exposure (estimated)</summary>
             <p class="stress-intro">~{{ number_format($foreignPct, 0) }}% of the book is in foreign currency — the ringgit moving swings your RM returns even when funds are flat. USD/MYR is live on the Dashboard. Estimated from fund geography (held e-Series funds carry no factsheet fx table).</p>
             <table class="stress-tbl">
                 <tr><th>Currency</th><th class="r">% of book</th><th class="r">Value</th></tr>
@@ -430,12 +430,12 @@
                     </tr>
                 @endforeach
             </table>
-        </div>
+        </details>
 
         @if ($attribution['tx_count'] > 0)
             @php $feeTot = $attribution['sales_charge'] + $attribution['sst']; @endphp
-            <div class="stress-box">
-                <span class="stress-h">🧾 Cost &amp; return attribution</span>
+            <details class="stress-box">
+                <summary class="stress-h">🧾 Cost &amp; return attribution</summary>
                 <p class="stress-intro">Where your money stands and what it cost. Fees are the real sales charges + SST from every transaction — the cumulative price of your buying and switching.</p>
                 <table class="stress-tbl">
                     <tr><td>Invested (cost basis)</td><td class="r">RM {{ number_format($ptInv, 0) }}</td></tr>
@@ -446,49 +446,10 @@
                     <tr><td><b>Total fees to PMO (all-time)</b></td><td class="r neg"><b>RM {{ number_format($feeTot, 2) }}</b> <span class="stress-worst">({{ number_format($feeTot / max($ptVal, 1) * 100, 2) }}% of book)</span></td></tr>
                 </table>
                 <small class="ps-sub">{{ $attribution['charged_tx'] }} of {{ $attribution['tx_count'] }} transactions carried a charge. Same-series switches after 90 days are free — these fees came from cash→equity buys, cross-series moves and early switches.</small>
-            </div>
+            </details>
         @endif
 
-        @if ($portfolio->isNotEmpty())
-            @php
-                $palette = ['#c8102e', '#1a7f5a', '#2a6fc9', '#e0a020', '#8e44ad', '#16a085', '#d35400', '#7f8c8d', '#c0392b', '#2980b9'];
-                $slices = collect($portfolio)->map(fn ($h) => ['name' => $h['name'], 'val' => (float) $h['value']])->sortByDesc('val')->values();
-                $allocTot = $slices->sum('val') ?: 1;
-                $C = 2 * M_PI * 60;
-                $acc = 0;
-                $sN = fn ($n) => (string) \Illuminate\Support\Str::of($n)->after('PUBLIC ');
-            @endphp
-            <div class="alloc-wrap">
-                <svg viewBox="0 0 160 160" class="alloc-donut" role="img" aria-label="Allocation by fund">
-                    <g transform="rotate(-90 80 80)">
-                        @foreach ($slices as $i => $s)
-                            @php $frac = $s['val'] / $allocTot; $len = $frac * $C; $off = -$acc * $C; $acc += $frac; @endphp
-                            <circle cx="80" cy="80" r="60" fill="none" stroke="{{ $palette[$i % count($palette)] }}"
-                                stroke-width="26" stroke-dasharray="{{ round($len, 2) }} {{ round($C - $len, 2) }}"
-                                stroke-dashoffset="{{ round($off, 2) }}"></circle>
-                        @endforeach
-                    </g>
-                    <text x="80" y="77" text-anchor="middle" class="alloc-c1">{{ $slices->count() }} funds</text>
-                    <text x="80" y="93" text-anchor="middle" class="alloc-c2">RM {{ number_format($allocTot, 0) }}</text>
-                </svg>
-                <ul class="alloc-legend">
-                    @foreach ($slices as $i => $s)
-                        <li><span class="alloc-dot" style="background:{{ $palette[$i % count($palette)] }}"></span>
-                            {{ $sN($s['name']) }} <b>{{ number_format($s['val'] / $allocTot * 100, 1) }}%</b></li>
-                    @endforeach
-                </ul>
-            </div>
-            <style>
-                .alloc-wrap { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; margin: 12px 0 4px; }
-                .alloc-donut { width: 160px; height: 160px; flex: none; }
-                .alloc-c1 { font-size: 11px; fill: #888; }
-                .alloc-c2 { font-size: 12px; font-weight: 700; fill: #222; }
-                .alloc-legend { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 2px 18px; font-size: 13px; }
-                .alloc-legend li { display: flex; align-items: center; gap: 6px; }
-                .alloc-dot { width: 10px; height: 10px; border-radius: 2px; flex: none; }
-                .alloc-legend b { margin-left: auto; font-variant-numeric: tabular-nums; }
-            </style>
-        @endif
+        {{-- Allocation pie moved below "Value over time" (more room there) --}}
 
         @php
             $exp = app(\App\Services\PortfolioExposure::class);
@@ -498,8 +459,8 @@
             $benchmarks = $exp->benchmarks();
         @endphp
         @if ($benchmarks)
-            <div class="stress-box">
-                <span class="stress-h">📈 Each fund vs its own PMO benchmark</span>
+            <details class="stress-box">
+                <summary class="stress-h">📈 Each fund vs its own PMO benchmark</summary>
                 <p class="stress-intro">The fund's own annualised return minus its Public Mutual benchmark, straight from the captured factsheet. Green beat its benchmark; red lagged — a red fund means a plain index of the same market would have done better.</p>
                 <table class="stress-tbl">
                     <tr><th>Fund</th><th class="r">Period</th><th class="r">Fund</th><th class="r">Benchmark</th><th class="r">Difference</th><th>Verdict</th></tr>
@@ -514,11 +475,11 @@
                         </tr>
                     @endforeach
                 </table>
-            </div>
+            </details>
         @endif
         @if ($riskAdj)
-            <div class="stress-box">
-                <span class="stress-h">⚖️ Return per unit of risk</span>
+            <details class="stress-box">
+                <summary class="stress-h">⚖️ Return per unit of risk</summary>
                 <p class="stress-intro">Each fund's return ÷ its Public Mutual factsheet volatility factor — higher means more return for the price swings you stomach. Money-market excluded (its near-zero volatility distorts the ratio).</p>
                 <table class="stress-tbl">
                     <tr><th>Fund</th><th class="r">Return</th><th class="r">Volatility</th><th class="r">Return / risk</th></tr>
@@ -531,13 +492,13 @@
                         </tr>
                     @endforeach
                 </table>
-            </div>
+            </details>
         @endif
 
         @php $cashPlan = app(\App\Services\CashPlanner::class)->plan(); @endphp
         @if ($cashPlan['cash'] > 1000 && $cashPlan['candidates'])
-            <div class="stress-box">
-                <span class="stress-h">💰 Deploying your idle e-Cash — RM {{ number_format($cashPlan['cash'], 0) }}</span>
+            <details class="stress-box">
+                <summary class="stress-h">💰 Deploying your idle e-Cash — RM {{ number_format($cashPlan['cash'], 0) }}</summary>
                 <p class="stress-intro">Where that cash helps most, on real PMO rules: cheaper sales charge, a buy level you've set, and room before a fund hits 30% of the book. Not advice — a ranked shortlist.</p>
                 <table class="stress-tbl">
                     <tr><th>Fund</th><th class="r">Now</th><th class="r">Cost to buy</th><th class="r">Room to 30%</th><th>Flags</th></tr>
@@ -552,13 +513,13 @@
                     @endforeach
                 </table>
                 <small class="ps-sub">Ranked cheapest + most room first; funds already over 30% (e-AI Tech) are pushed down — adding worsens concentration. Deploying into gold or a bond costs far less (1% / 0.65%) than equity (3.75%).</small>
-            </div>
+            </details>
         @endif
 
         @php $stress = app(\App\Services\PortfolioStress::class)->run(); @endphp
         @if ($stress)
-            <div class="stress-box">
-                <span class="stress-h">🎯 Stress test — projected hit if…</span>
+            <details class="stress-box">
+                <summary class="stress-h">🎯 Stress test — projected hit if…</summary>
                 <p class="stress-intro">If the market has a bad day, how much would <em>you</em> lose and which fund hurts most? A what-if, not a prediction — each fund's real PMO geography × the shock.</p>
                 <table class="stress-tbl">
                     @foreach ($stress as $s)
@@ -570,9 +531,14 @@
                     @endforeach
                 </table>
                 <small class="ps-sub">Your real captured PMO geography × the shock — not a forecast. Shows where a move actually lands in your book.</small>
-            </div>
+            </details>
             <style>
                 .stress-box { border: 1px solid #eee; border-radius: 6px; padding: 8px 10px; margin: 6px 0; }
+                details.stress-box > summary.stress-h { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 6px; user-select: none; }
+                details.stress-box > summary.stress-h::-webkit-details-marker { display: none; }
+                details.stress-box > summary.stress-h::before { content: '▸'; font-size: 10px; color: #aaa; transition: transform .12s ease; }
+                details.stress-box[open] > summary.stress-h::before { transform: rotate(90deg); }
+                details.stress-box > summary.stress-h:hover { color: #c8102e; }
                 .stress-h { font-size: 12px; font-weight: 600; color: #444; }
                 .stress-intro { font-size: 11px; color: #777; margin: 3px 0 4px; line-height: 1.4; }
                 .stress-tbl { width: 100%; border-collapse: collapse; font-size: 12px; margin: 4px 0; }
@@ -581,8 +547,8 @@
             </style>
         @endif
         @if ($sectors)
-            <div class="stress-box">
-                <span class="stress-h">🏭 Sector look-through</span>
+            <details class="stress-box">
+                <summary class="stress-h">🏭 Sector look-through</summary>
                 <p class="stress-intro">Weighted from each fund's captured top-5 sectors — where the whole book leans. Technology dominates via your AI + semiconductor funds. (% of total book; captured sectors don't sum to 100%.)</p>
                 <table class="stress-tbl">
                     <tr><th>Sector</th><th class="r">% of book</th><th class="r">Value</th></tr>
@@ -594,11 +560,11 @@
                         </tr>
                     @endforeach
                 </table>
-            </div>
+            </details>
         @endif
         @if ($overlap)
-            <div class="stress-box">
-                <span class="stress-h">🔍 Same stock across funds — hidden concentration</span>
+            <details class="stress-box">
+                <summary class="stress-h">🔍 Same stock across funds — hidden concentration</summary>
                 <p class="stress-intro">A stock you hold through more than one fund. The fund-level weights don't show this — a single-stock shock hits several of your funds at once.</p>
                 <table class="stress-tbl">
                     <tr><th>Stock</th><th class="r">In funds</th><th class="r">Combined fund value</th><th>Which funds</th></tr>
@@ -611,7 +577,7 @@
                         </tr>
                     @endforeach
                 </table>
-            </div>
+            </details>
         @endif
 
 
@@ -707,6 +673,48 @@
                 @else
                     <p class="ps-big-note">RM {{ number_format((float) ($history->first()->value ?? 0), 0) }}</p>
                     <p class="ps-sub">First point {{ $history->first()?->snap_date->format('Y-m-d') ?? '—' }} · the curve draws from your second holdings capture — one point per capture</p>
+                @endif
+
+                @if ($portfolio->isNotEmpty())
+                    @php
+                        $palette = ['#c8102e', '#1a7f5a', '#2a6fc9', '#e0a020', '#8e44ad', '#16a085', '#d35400', '#7f8c8d', '#c0392b', '#2980b9'];
+                        $slices = collect($portfolio)->map(fn ($h) => ['name' => $h['name'], 'val' => (float) $h['value']])->sortByDesc('val')->values();
+                        $allocTot = $slices->sum('val') ?: 1;
+                        $C = 2 * M_PI * 60;
+                        $acc = 0;
+                        $sN = fn ($n) => (string) \Illuminate\Support\Str::of($n)->after('PUBLIC ');
+                    @endphp
+                    <h2 style="margin-top:18px">Allocation by fund</h2>
+                    <div class="alloc-wrap">
+                        <svg viewBox="0 0 160 160" class="alloc-donut" role="img" aria-label="Allocation by fund">
+                            <g transform="rotate(-90 80 80)">
+                                @foreach ($slices as $i => $s)
+                                    @php $frac = $s['val'] / $allocTot; $len = $frac * $C; $off = -$acc * $C; $acc += $frac; @endphp
+                                    <circle cx="80" cy="80" r="60" fill="none" stroke="{{ $palette[$i % count($palette)] }}"
+                                        stroke-width="26" stroke-dasharray="{{ round($len, 2) }} {{ round($C - $len, 2) }}"
+                                        stroke-dashoffset="{{ round($off, 2) }}"></circle>
+                                @endforeach
+                            </g>
+                            <text x="80" y="77" text-anchor="middle" class="alloc-c1">{{ $slices->count() }} funds</text>
+                            <text x="80" y="93" text-anchor="middle" class="alloc-c2">RM {{ number_format($allocTot, 0) }}</text>
+                        </svg>
+                        <ul class="alloc-legend">
+                            @foreach ($slices as $i => $s)
+                                <li><span class="alloc-dot" style="background:{{ $palette[$i % count($palette)] }}"></span>
+                                    {{ $sN($s['name']) }} <b>{{ number_format($s['val'] / $allocTot * 100, 1) }}%</b></li>
+                            @endforeach
+                        </ul>
+                    </div>
+                    <style>
+                        .alloc-wrap { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; margin: 12px 0 4px; }
+                        .alloc-donut { width: 160px; height: 160px; flex: none; }
+                        .alloc-c1 { font-size: 11px; fill: #888; }
+                        .alloc-c2 { font-size: 12px; font-weight: 700; fill: #222; }
+                        .alloc-legend { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 2px 18px; font-size: 13px; }
+                        .alloc-legend li { display: flex; align-items: center; gap: 6px; }
+                        .alloc-dot { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+                        .alloc-legend b { margin-left: auto; font-variant-numeric: tabular-nums; }
+                    </style>
                 @endif
             </section>
         </div>
