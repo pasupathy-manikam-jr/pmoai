@@ -105,4 +105,47 @@ class MarketQuoteServiceTest extends TestCase
         $this->assertSame(100.0, $out['^NOPREV']['price']);
         $this->assertNull($out['^NOPREV']['change_pct']);
     }
+
+    public function test_crosscheck_flags_disagreement_beyond_tolerance(): void
+    {
+        config(['services.twelvedata.key' => 'test-key']);
+        Http::fake([
+            'query1.finance.yahoo.com/*' => Http::response($this->yahoo(4.00, 4.00, 'MYR')),
+            'api.twelvedata.com/*' => Http::response(['close' => '4.20', 'currency' => 'MYR']),
+        ]);
+
+        $out = app(MarketQuoteService::class)->crossCheck(['MYR=X'], 1.0);
+
+        $this->assertCount(1, $out);
+        $this->assertFalse($out[0]['agree']);              // 5% apart > 1% tol
+        $this->assertEqualsWithDelta(5.0, $out[0]['diff_pct'], 0.01);
+    }
+
+    public function test_crosscheck_agrees_within_tolerance(): void
+    {
+        config(['services.twelvedata.key' => 'test-key']);
+        Http::fake([
+            'query1.finance.yahoo.com/*' => Http::response($this->yahoo(4.000, 4.000, 'MYR')),
+            'api.twelvedata.com/*' => Http::response(['close' => '4.010', 'currency' => 'MYR']),
+        ]);
+
+        $out = app(MarketQuoteService::class)->crossCheck(['MYR=X'], 1.0);
+
+        $this->assertTrue($out[0]['agree']);               // 0.25% apart < 1% tol
+    }
+
+    public function test_crosscheck_dormant_without_key(): void
+    {
+        config(['services.twelvedata.key' => null]);
+
+        $this->assertSame([], app(MarketQuoteService::class)->crossCheck(['MYR=X']));
+    }
+
+    public function test_crosscheck_skips_unmapped_symbols(): void
+    {
+        config(['services.twelvedata.key' => 'test-key']);
+
+        // ^JKSE is not in TD_MAP → no second source → nothing to compare.
+        $this->assertSame([], app(MarketQuoteService::class)->crossCheck(['^JKSE']));
+    }
 }

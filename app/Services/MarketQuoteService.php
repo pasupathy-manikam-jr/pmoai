@@ -123,6 +123,44 @@ class MarketQuoteService
     }
 
     /**
+     * Cross-check the two independent sources for the symbols they BOTH cover
+     * (only TD_MAP symbols — USD/MYR + gold). Flags any price that disagrees by
+     * more than $tolPct. Dormant (empty) with no Twelve Data key configured, so
+     * it never raises a false alarm on a single-source setup.
+     *
+     * @param  string[]  $symbols
+     * @return array<int, array{symbol:string, yahoo:float, td:float, diff_pct:float, agree:bool}>
+     */
+    public function crossCheck(array $symbols, float $tolPct = 1.0): array
+    {
+        if (! config('services.twelvedata.key')) {
+            return [];
+        }
+        $out = [];
+        foreach ($symbols as $symbol) {
+            if (! isset(self::TD_MAP[$symbol])) {
+                continue;   // no second source covers this one
+            }
+            $meta = $this->chart($symbol, ['interval' => '1d', 'range' => '1d'])['meta'] ?? null;
+            $yahoo = isset($meta['regularMarketPrice']) ? (float) $meta['regularMarketPrice'] : null;
+            $td = $this->twelveData($symbol);
+            if ($yahoo === null || $td === null || $yahoo == 0.0) {
+                continue;   // need both to compare
+            }
+            $diff = abs($yahoo - $td['price']) / $yahoo * 100;
+            $out[] = [
+                'symbol'   => $symbol,
+                'yahoo'    => $yahoo,
+                'td'       => $td['price'],
+                'diff_pct' => round($diff, 2),
+                'agree'    => $diff <= $tolPct,
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
      * Twelve Data quote — independent second source. Dormant unless a key is
      * configured and the symbol is mapped. Returns the same shape as fetch(),
      * or null on any failure (rate limit, unmapped, no coverage).

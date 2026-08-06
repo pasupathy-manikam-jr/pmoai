@@ -14,7 +14,23 @@
         // Our own daily history (independent of TradingView) → sparklines.
         $hist = \App\Models\MarketQuoteDay::whereIn('symbol', array_column($indices, 'symbol'))
             ->orderBy('quote_date')->get(['symbol', 'quote_date', 'price'])->groupBy('symbol');
+        // Two-source agreement check (USD/MYR + gold). Cached — live API calls.
+        $xchecks = \Illuminate\Support\Facades\Cache::remember('quote_crosscheck', now()->addMinutes(30),
+            fn () => app(\App\Services\MarketQuoteService::class)->crossCheck(array_column($indices, 'symbol'), 2.0));
+        $xdisagree = collect($xchecks)->reject(fn ($c) => $c['agree'])->values();
     @endphp
+
+    @if (! empty($xchecks))
+        <p class="idx-xcheck {{ $xdisagree->isEmpty() ? 'ok' : 'warn' }}">
+            @if ($xdisagree->isEmpty())
+                ✓ Two-source check: USD/MYR &amp; gold agree across Yahoo + Twelve Data.
+            @else
+                ⚠ Two sources disagree on
+                {{ $xdisagree->map(fn ($c) => ($c['symbol'] === 'MYR=X' ? 'USD/MYR' : ($c['symbol'] === 'GC=F' ? 'gold' : $c['symbol'])).' ('.$c['diff_pct'].'%)')->implode(', ') }}
+                — treat those numbers with caution.
+            @endif
+        </p>
+    @endif
     <p class="idx-intro">Indices matched to where your money actually sits (from each fund's geographical breakdown). Live quotes (Yahoo) above each chart.
         @if ($lastFetch)Updated {{ $lastFetch->diffForHumans() }}.@else No quotes yet.@endif
         The chart below is TradingView (may lag for some Asian exchanges).
@@ -98,6 +114,9 @@
 
     <style>
         .idx-intro { color: #666; margin: 0 0 16px; font-size: 13px; }
+        .idx-xcheck { font-size: 12px; margin: 0 0 14px; padding: 6px 10px; border-radius: 6px; }
+        .idx-xcheck.ok { background: #eef7f0; color: #1a7f5a; }
+        .idx-xcheck.warn { background: #fdf3e7; color: #8a6a00; }
         .idx-refresh { margin-left: 8px; padding: 3px 10px; border: 1px solid #c8102e; background: #fff;
             color: #c8102e; border-radius: 5px; cursor: pointer; font-size: 12px; }
         .idx-refresh:hover { background: #c8102e; color: #fff; }

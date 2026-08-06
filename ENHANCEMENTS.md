@@ -164,15 +164,19 @@ The geography work proved the pattern; apply it to the other captured blocks.
   then a **Twelve Data** fallback (config-gated) for USD/MYR + gold. A single
   host hiccup no longer blanks the dashboard; a full Yahoo outage still delivers
   the two most critical quotes. Indices stay Yahoo-only (Twelve Data's free tier
-  excludes them). Next: use the second source to *cross-check* Yahoo and flag
-  disagreements > X%.
+  excludes them).
+- ✅ **Two-source cross-check** — `MarketQuoteService::crossCheck()` compares
+  Yahoo vs Twelve Data on the symbols both cover (USD/MYR + gold) and shows a
+  green/amber banner on the dashboard when they disagree > tolerance (2%, so
+  normal gold futures-vs-spot basis doesn't cry wolf). Dormant with no TD key.
 - ✅ **Reconciliation guard** — auto-compare the app's total against the latest
   statement total and flag any drift (would have caught the month-end overwrite).
 - ✅ **Verdict-accuracy tracker** — persist the backtest over time; show whether the
   AI's calls are getting better and weight advice by its hit rate.
-- **Wider test coverage** — `IngestStatements` (extract-to-static like the float
-  parser), `PortfolioIndices`, the simulator math (port the JS to a testable
-  service or add a JS test runner).
+- 🚧 **Wider test coverage** — added: `crossCheck()` (4), currency exposure (2),
+  `ReconciliationService` (3: unexplained-drop / redemption-explained / healthy),
+  `PortfolioIndices` (4: country→index, macro trio, gold, symbols). Suite now 41.
+  Still open: `IngestStatements` extract-to-static, the simulator JS math.
 - ✅ **Data-freshness monitor** — warn when prices/holdings are stale, before you
   act on old numbers.
 
