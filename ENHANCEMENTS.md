@@ -136,8 +136,11 @@ The geography work proved the pattern; apply it to the other captured blocks.
   the tax/charge cost to get there.
 - ✅ **Stress test** — "US tech −20% / gold −10% / ringgit +5%" → projected
   portfolio value and which funds hurt most, using real geo + currency exposure.
-- **PRS optimiser** — track the RM3,000/yr relief across years, warn on
-  over-contribution (done) and suggest the tax-optimal timing/fund.
+- ✅ **PRS optimiser** — full per-year contribution history (2019→now) vs the
+  RM3,000 relief cap, flags years that wasted excess (2022 was RM6k → RM3k
+  wasted), lifetime relief + est. tax saved + PRS XIRR. Overview panel.
+  _Optional leftover:_ forward "contribute by 31 Dec" nudge (the annual box
+  already shows room left).
 - ✅ **Cash deployment planner** — given the idle e-Cash, rank where deploying it
   (fees + buy-low triggers + concentration limits) does the most good.
 

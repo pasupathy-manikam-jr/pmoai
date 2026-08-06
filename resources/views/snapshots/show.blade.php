@@ -426,6 +426,43 @@
             @if ($prsOver > 0)<small class="ps-sub">Relief is capped per person per year (RM3,000), NOT per fund — the excess has no tax benefit this year.</small>@endif
         </details>
 
+        @if ($prsHistory->isNotEmpty())
+            <details class="stress-box">
+                <summary class="stress-h">🏦 PRS contribution history
+                    @if ($prsTotals['wasted'] > 0)<span style="color:#8a6a00">• RM{{ number_format($prsTotals['wasted'], 0) }} over cap</span>@endif
+                </summary>
+                <p class="stress-intro">Every PRS contribution you've made, year by year. Relief is capped at RM3,000 per year — a year above that wastes the excess (no tax benefit on it).</p>
+                <table class="stress-tbl">
+                    <tr><th>Year</th><th class="r">Contributed</th><th class="r">Relief claimed</th><th>Status</th></tr>
+                    @foreach ($prsHistory as $h)
+                        <tr>
+                            <td>{{ $h['year'] }}</td>
+                            <td class="r">RM {{ number_format($h['amount'], 0) }}</td>
+                            <td class="r">RM {{ number_format($h['relief'], 0) }}</td>
+                            <td>
+                                @if ($h['wasted'] > 0)
+                                    <span class="neg">RM{{ number_format($h['wasted'], 0) }} wasted ⚠</span>
+                                @elseif ($h['maxed'])
+                                    <span class="pos">maxed ✓</span>
+                                @else
+                                    <span style="color:#8a6a00">under cap</span>
+                                @endif
+                            </td>
+                        </tr>
+                    @endforeach
+                    <tr style="border-top:2px solid #ddd">
+                        <td><b>Total ({{ $prsTotals['years'] }} yrs)</b></td>
+                        <td class="r"><b>RM {{ number_format($prsTotals['contributed'], 0) }}</b></td>
+                        <td class="r"><b>RM {{ number_format($prsTotals['relief'], 0) }}</b></td>
+                        <td>@if ($prsXirr !== null)<span class="{{ $prsXirr >= 0 ? 'pos' : 'neg' }}">{{ $prsXirr >= 0 ? '+' : '' }}{{ $prsXirr }}%/yr</span>@endif</td>
+                    </tr>
+                </table>
+                <small class="ps-sub">Estimated tax saved ≈ RM {{ number_format($prsTotals['relief'] * 0.3, 0) }} lifetime (relief × ~30% top bracket — your actual saving depends on your rate).
+                    @if ($prsTotals['wasted'] > 0) RM{{ number_format($prsTotals['wasted'], 0) }} was contributed above the yearly cap and earned no relief.@endif
+                </small>
+            </details>
+        @endif
+
         @php
             // Concentration: single-fund weight of the whole book. >30% = one
             // fund's drawdown swings the portfolio; 25–30% = watch.

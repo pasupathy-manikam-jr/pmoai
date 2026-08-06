@@ -247,6 +247,29 @@ class SnapshotController extends Controller
         $prsThisYear = $prsContribs->filter(fn ($t) => $t->trans_date->year === now('Asia/Kuala_Lumpur')->year)
             ->sum('net');
         $prsValue = $portfolio->filter(fn ($h) => str_starts_with($h['name'], 'PRS'))->sum('value');
+
+        // Per-year PRS contribution history — each year's total vs the
+        // RM3,000 relief cap (relief is capped per person per year, so a
+        // year over RM3,000 wastes the excess). All from captured PRSC rows.
+        $prsHistory = $prsContribs->groupBy(fn ($t) => $t->trans_date->year)
+            ->map(function ($g, $yr) {
+                $amt = (float) $g->sum('net');
+                return [
+                    'year'    => (int) $yr,
+                    'amount'  => $amt,
+                    'relief'  => min($amt, 3000),          // claimable this year
+                    'wasted'  => max(0, $amt - 3000),      // excess, no relief
+                    'maxed'   => $amt >= 3000,
+                    'funds'   => $g->pluck('fund_code')->unique()->values()->all(),
+                ];
+            })->values()->sortByDesc('year')->values();
+        $prsTotals = [
+            'contributed' => (float) $prsHistory->sum('amount'),
+            'relief'      => (float) $prsHistory->sum('relief'),
+            'wasted'      => (float) $prsHistory->sum('wasted'),
+            'years'       => $prsHistory->count(),
+        ];
+
         $prsXirr = null;
         if ($prsContribs->isNotEmpty() && $prsValue > 0) {
             $flows = $prsContribs->map(fn ($t) => ['date' => $t->trans_date, 'amount' => -(float) $t->net])->all();
@@ -336,6 +359,7 @@ class SnapshotController extends Controller
             'snapshot', 'funds', 'detailMap', 'detailByCode', 'ideas', 'portfolio',
             'alerts', 'history', 'review', 'past', 'prsThisYear', 'prsXirr',
             'transactions', 'pending', 'backtest', 'attribution', 'reconcile',
+            'prsHistory', 'prsTotals',
         ));
     }
 
