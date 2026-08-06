@@ -134,6 +134,27 @@ class FundDetailController extends Controller
     }
 
     /**
+     * Save your own research note against this fund. Kept in the payload so it
+     * rides along with the rest of the captured data; empty clears it.
+     */
+    public function saveNote(\Illuminate\Http\Request $request, FundDetail $detail)
+    {
+        $data = $request->validate(['note' => ['nullable', 'string', 'max:10000']]);
+
+        $payload = $detail->payload ?? [];
+        $text = trim((string) ($data['note'] ?? ''));
+        if ($text === '') {
+            unset($payload['note'], $payload['note_at']);
+        } else {
+            $payload['note'] = $text;
+            $payload['note_at'] = now()->toDateTimeString();
+        }
+        $detail->update(['payload' => $payload]);
+
+        return redirect()->route('details.show', $detail)->withFragment('my-note');
+    }
+
+    /**
      * Lightweight poll target for the in-page progress indicators.
      */
     public function status(FundDetail $detail)

@@ -177,6 +177,70 @@ class PortfolioExposure
         return $out;
     }
 
+    /** Captured country (from the geo breakdown) → its currency. */
+    private const CCY = [
+        'USA' => 'USD', 'UNITED STATES' => 'USD',
+        'INDONESIA' => 'IDR', 'INDIA' => 'INR',
+        'CHINA' => 'CNY', 'GREATER CHINA' => 'CNY', 'HONG KONG' => 'HKD',
+        'TAIWAN' => 'TWD', 'KOREA' => 'KRW', 'SOUTH KOREA' => 'KRW',
+        'JAPAN' => 'JPY', 'GREAT BRITAIN' => 'GBP', 'UNITED KINGDOM' => 'GBP',
+        'NETHERLANDS' => 'EUR', 'FRANCE' => 'EUR', 'GERMANY' => 'EUR', 'IRELAND' => 'EUR',
+        'SINGAPORE' => 'SGD', 'AUSTRALIA' => 'AUD', 'THAILAND' => 'THB',
+        'VIETNAM' => 'VND', 'PHILIPPINES' => 'PHP', 'MALAYSIA' => 'MYR',
+    ];
+
+    /**
+     * REAL currency exposure — built from each fund's captured Geographical
+     * Breakdown (the same data the dashboard indices use), weighting each
+     * country's currency by (fund value × that country's %). A gold fund is
+     * USD-priced. Any part of a fund with no listed country falls back to MYR
+     * (fund-held cash). This replaces the old name-guess estimate.
+     *
+     * @return array{rows: array<int, array{ccy:string, rm:float, pct:float}>, total:float, foreign_pct:float}
+     */
+    public function currencies(): array
+    {
+        $byCcy = [];   // ccy => RM
+        foreach (app(PortfolioIndices::class)->fundGeo() as $f) {
+            $val = (float) $f['value'];
+            if ($val <= 0) {
+                continue;
+            }
+            if (! empty($f['gold'])) {
+                $byCcy['USD'] = ($byCcy['USD'] ?? 0) + $val;   // gold trades in USD
+                continue;
+            }
+            $placed = 0.0;
+            foreach ($f['geo'] as $country => $pct) {
+                $ccy = self::CCY[strtoupper($country)] ?? null;
+                if (! $ccy) {
+                    continue;   // unknown country → treated as MYR remainder below
+                }
+                $rm = $val * (float) $pct / 100;
+                $byCcy[$ccy] = ($byCcy[$ccy] ?? 0) + $rm;
+                $placed += $rm;
+            }
+            // Whatever geography didn't account for → home currency (MYR).
+            $rest = max(0, $val - $placed);
+            if ($rest > 0) {
+                $byCcy['MYR'] = ($byCcy['MYR'] ?? 0) + $rest;
+            }
+        }
+
+        arsort($byCcy);
+        $total = array_sum($byCcy) ?: 1;
+        $rows = array_map(
+            fn ($ccy, $rm) => ['ccy' => $ccy, 'rm' => $rm, 'pct' => $rm / $total * 100],
+            array_keys($byCcy), array_values($byCcy)
+        );
+
+        return [
+            'rows' => $rows,
+            'total' => array_sum($byCcy),
+            'foreign_pct' => 100 - (($byCcy['MYR'] ?? 0) / $total * 100),
+        ];
+    }
+
     /** Match key — strip corporate suffixes/share-class so "NVIDIA Corporation" == "NVIDIA". */
     private function normStock(string $s): string
     {

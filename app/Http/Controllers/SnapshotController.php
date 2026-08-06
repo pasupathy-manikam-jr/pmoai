@@ -329,10 +329,13 @@ class SnapshotController extends Controller
             'charged_tx'   => $allTx->filter(fn ($t) => (float) $t->charge_amt > 0)->count(),
         ];
 
+        // "Does the data still add up?" — total-drift + freshness checks.
+        $reconcile = app(\App\Services\ReconciliationService::class)->check();
+
         return view('snapshots.show', compact(
             'snapshot', 'funds', 'detailMap', 'detailByCode', 'ideas', 'portfolio',
             'alerts', 'history', 'review', 'past', 'prsThisYear', 'prsXirr',
-            'transactions', 'pending', 'backtest', 'attribution',
+            'transactions', 'pending', 'backtest', 'attribution', 'reconcile',
         ));
     }
 

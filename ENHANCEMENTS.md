@@ -119,9 +119,11 @@ The geography work proved the pattern; apply it to the other captured blocks.
   flags any stock held through >1 fund (found NVIDIA in 2 funds ~RM230k, SK Hynix
   in 2 ~RM219k) — real single-stock concentration the fund weights hide.
   `PortfolioExposure::stocks()`.
-- **Factsheet fx/geo parser fix** — teach `MfrParser` the e-Series/foreign
-  layout so `fx_exposure`/`geo_foreign` populate for held funds; upgrades the
-  currency panel from estimate to real and feeds the above from a second source.
+- ✅ **Currency panel now real** — instead of the MFR fx-table (absent for held
+  e-Series funds), currency exposure is built from each fund's captured
+  Geographical Breakdown (country % × value → currency; gold = USD; remainder =
+  MYR). `PortfolioExposure::currencies()`. _Optional leftover:_ still parse the
+  MFR fx table where present as a cross-check second source.
 - ✅ **Risk-adjusted view** — pair each fund's return with its volatility factor
   (already captured) → a simple return-per-unit-of-risk ranking.
 
@@ -164,26 +166,26 @@ The geography work proved the pattern; apply it to the other captured blocks.
   the two most critical quotes. Indices stay Yahoo-only (Twelve Data's free tier
   excludes them). Next: use the second source to *cross-check* Yahoo and flag
   disagreements > X%.
-- **Reconciliation guard** — auto-compare the app's total against the latest
+- ✅ **Reconciliation guard** — auto-compare the app's total against the latest
   statement total and flag any drift (would have caught the month-end overwrite).
 - ✅ **Verdict-accuracy tracker** — persist the backtest over time; show whether the
   AI's calls are getting better and weight advice by its hit rate.
 - **Wider test coverage** — `IngestStatements` (extract-to-static like the float
   parser), `PortfolioIndices`, the simulator math (port the JS to a testable
   service or add a JS test runner).
-- **Data-freshness monitor** — warn when prices/holdings are stale, before you
+- ✅ **Data-freshness monitor** — warn when prices/holdings are stale, before you
   act on old numbers.
 
 ---
 
 ## Phase 10 — knowledge & context
 
-- **Per-fund research notes** — your own annotations kept against a specific PMO
+- ✅ **Per-fund research notes** — your own annotations kept against a specific PMO
   fund.
 - **Exposure-driven calendar** — only dates that move *your* funds: BNM (the
   ringgit → every foreign fund), the Fed (your ~50% USD exposure), and PMO's own
   distribution/ex-dates. Not a generic economic calendar.
-- **Backup & restore** — one-command export of the local PMO dataset.
+- ✅ **Backup & restore** — `pmoai:backup` (pg_dump, auto-prune) + `--restore=` — one-command export of the local PMO dataset.
 
 ---
 

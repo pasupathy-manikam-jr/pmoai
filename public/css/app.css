@@ -296,6 +296,12 @@ small{color:#666}
 .page-detail .fd-chat-form textarea{flex:1;box-sizing:border-box;padding:10px 12px;font:inherit;font-size:.9rem;
     border:1px solid var(--line);border-radius:8px;background:var(--paper);resize:vertical;min-height:44px}
 .page-detail .fd-chat-form textarea:focus{outline:2px solid var(--crimson);outline-offset:1px;border-color:var(--crimson)}
+.page-detail .fd-note-form{display:flex;flex-direction:column;gap:8px;margin-top:6px}
+.page-detail .fd-note-form textarea{box-sizing:border-box;width:100%;padding:10px 12px;font:inherit;font-size:.9rem;
+    border:1px solid var(--line);border-radius:8px;resize:vertical;line-height:1.5}
+.page-detail .fd-note-form textarea:focus{outline:2px solid var(--crimson);outline-offset:1px;border-color:var(--crimson)}
+.page-detail .fd-note-actions{display:flex;align-items:center;gap:12px}
+.page-detail .fd-note-actions small{color:var(--muted)}
 .page-detail .fd-chat + .fd-card{margin-top:0}
 .page-detail .fd-chat small{display:block;margin-top:8px;color:var(--muted)}
 

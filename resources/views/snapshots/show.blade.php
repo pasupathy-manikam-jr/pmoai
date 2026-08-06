@@ -319,6 +319,60 @@
             · <a href="{{ route('snapshots.report', $snapshot) }}">🖶 printable report</a>
         </p>
 
+        @php $rc = $reconcile; @endphp
+        <details class="stress-box" {{ $rc['tone'] !== 'open' ? 'open' : '' }}>
+            <summary class="stress-h">🧮 Does this add up? — data check
+                @if ($rc['tone'] === 'off')<span class="neg">⚠ check this</span>
+                @elseif ($rc['tone'] === 'warn')<span style="color:#8a6a00">• heads up</span>
+                @else<span class="pos">✓ looks fine</span>@endif
+            </summary>
+            <p class="stress-intro">A quick sanity check that nothing quietly went wrong — the total still matches your last capture, and the numbers aren't old.</p>
+
+            @if ($rc['drift_flag'])
+                <p class="stress-intro" style="color:#bb2018">
+                    <b>Your total dropped RM {{ number_format(abs($rc['delta']), 0) }} ({{ number_format($rc['delta_pct'], 1) }}%)</b>
+                    since {{ $rc['prev_date']?->format('d M') }} and no sell explains it. An older statement may have
+                    overwritten newer values — please re-check before acting.
+                </p>
+            @endif
+
+            <table class="stress-tbl">
+                <tr><td>Total now</td><td class="r">RM {{ number_format($rc['current_total'], 0) }}</td></tr>
+                @if ($rc['prev_total'] !== null)
+                    <tr><td>Last recorded ({{ $rc['prev_date']?->format('d M') }})</td><td class="r">RM {{ number_format($rc['prev_total'], 0) }}</td></tr>
+                    <tr>
+                        <td>Change since then</td>
+                        <td class="r {{ $rc['delta'] >= 0 ? 'pos' : 'neg' }}">
+                            {{ $rc['delta'] >= 0 ? '+' : '−' }}RM {{ number_format(abs($rc['delta']), 0) }}
+                            ({{ $rc['delta_pct'] >= 0 ? '+' : '' }}{{ number_format($rc['delta_pct'], 1) }}%)
+                        </td>
+                    </tr>
+                    @if ($rc['redeemed'] > 0)
+                        <tr><td>Money you took out since then</td><td class="r">RM {{ number_format($rc['redeemed'], 0) }} <span class="stress-worst">(explains part of the drop)</span></td></tr>
+                    @endif
+                @endif
+                <tr>
+                    <td>Holdings last captured</td>
+                    <td class="r {{ $rc['holdings_stale'] ? 'neg' : '' }}">
+                        {{ $rc['holdings_age'] === null ? '—' : ($rc['holdings_age'] === 0 ? 'today' : $rc['holdings_age'].' day'.($rc['holdings_age'] === 1 ? '' : 's').' ago') }}
+                        @if ($rc['holdings_stale']) — getting old @endif
+                    </td>
+                </tr>
+                <tr>
+                    <td>Fund prices up to date</td>
+                    <td class="r {{ $rc['stale_prices']->isNotEmpty() ? 'neg' : 'pos' }}">
+                        {{ $rc['held_count'] - $rc['stale_prices']->count() }} / {{ $rc['held_count'] }} fresh
+                    </td>
+                </tr>
+            </table>
+
+            @if ($rc['stale_prices']->isNotEmpty())
+                <small class="ps-sub">Older than {{ $rc['price_stale_days'] }} days — recapture these funds' prices:
+                    {{ $rc['stale_prices']->map(fn ($s) => \Illuminate\Support\Str::of($s['name'])->after('PUBLIC ').($s['last'] ? ' ('.$s['last']->format('d M').')' : ' (none)'))->implode(', ') }}.
+                </small>
+            @endif
+        </details>
+
         @php
             // PMO order cut-off: 4:00 PM MYT on trading days (Mon–Fri,
             // excluding public holidays — which we can't know, so we say so).
@@ -397,36 +451,23 @@
         </details>
 
         @php
-            // Currency exposure — ESTIMATED from each fund's geography (held
-            // e-Series/foreign funds don't carry a factsheet fx table). The RM
-            // value of a foreign fund moves with its underlying currency, so
+            // Currency exposure — REAL, built from each fund's captured
+            // Geographical Breakdown (country % × fund value → currency),
+            // gold counted as USD, the unlisted remainder as MYR. The RM value
+            // of a foreign holding moves with its underlying currency, so
             // USD/MYR etc. swing your returns even when the fund is flat.
-            $ccyOf = function ($name) {
-                $n = strtoupper($name);
-                if (str_contains($n, 'INDONESIA')) return 'IDR';
-                if (str_contains($n, 'INDIA')) return 'INR';
-                if (preg_match('/GREATER CHINA|CHINA/', $n)) return 'CNY';
-                if (preg_match('/EMAS|GOLD|ARTIFICIAL|INTELLIGENCE|U\.?S\.?|AMERICA|WORLDWIDE|HEALTHCARE-GLOBAL/', $n)) return 'USD';
-                if (preg_match('/CASH|MONEY MARKET|PRS|MALAYSIA|SUKUK|ISLAMIC INCOME|\bBOND\b/', $n)) return 'MYR';
-                if (preg_match('/ASIA|PACIFIC|FAR-EAST|ASEAN|VIETNAM|SINGAPORE|JAPAN|KOREA/', $n)) return 'Asia (mixed)';
-                return 'USD';   // foreign default
-            };
-            $ccy = collect($portfolio)->groupBy(fn ($h) => $ccyOf($h['name']))
-                ->map(fn ($g) => $g->sum('value'))
-                ->sortDesc();
-            $ccyTot = $ccy->sum() ?: 1;
-            $foreignPct = 100 - ($ccy['MYR'] ?? 0) / $ccyTot * 100;
+            $ccyx = app(\App\Services\PortfolioExposure::class)->currencies();
         @endphp
         <details class="stress-box">
-            <summary class="stress-h">💱 Currency exposure (estimated)</summary>
-            <p class="stress-intro">~{{ number_format($foreignPct, 0) }}% of the book is in foreign currency — the ringgit moving swings your RM returns even when funds are flat. USD/MYR is live on the Dashboard. Estimated from fund geography (held e-Series funds carry no factsheet fx table).</p>
+            <summary class="stress-h">💱 Currency exposure</summary>
+            <p class="stress-intro">~{{ number_format($ccyx['foreign_pct'], 0) }}% of the book is in foreign currency — the ringgit moving swings your RM returns even when funds are flat. USD/MYR is live on the Dashboard. Built from each fund's real captured country breakdown (gold = USD; unlisted portion = MYR).</p>
             <table class="stress-tbl">
                 <tr><th>Currency</th><th class="r">% of book</th><th class="r">Value</th></tr>
-                @foreach ($ccy as $code => $val)
+                @foreach ($ccyx['rows'] as $r)
                     <tr>
-                        <td>{{ $code }}</td>
-                        <td class="r">{{ number_format($val / $ccyTot * 100, 1) }}%</td>
-                        <td class="r">RM {{ number_format($val, 0) }}</td>
+                        <td>{{ $r['ccy'] }}</td>
+                        <td class="r">{{ number_format($r['pct'], 1) }}%</td>
+                        <td class="r">RM {{ number_format($r['rm'], 0) }}</td>
                     </tr>
                 @endforeach
             </table>

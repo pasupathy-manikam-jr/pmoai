@@ -34,3 +34,7 @@ Thumbs.db
 holdings*.json
 /storage/app/mfr/
 /storage/app/statements/
+
+# local DB backups — never commit (contains full dataset)
+/storage/app/backups/
+*.sql

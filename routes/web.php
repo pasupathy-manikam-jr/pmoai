@@ -41,3 +41,4 @@ Route::post('/details/{detail}/analyze', [FundDetailController::class, 'analyze'
 Route::get('/details/{detail}/status', [FundDetailController::class, 'status'])->name('details.status');
 Route::post('/details/{detail}/chat', [FundDetailController::class, 'chat'])->name('details.chat');
 Route::post('/details/{detail}/chat/delete', [FundDetailController::class, 'deleteChat'])->name('details.chat.delete');
+Route::post('/details/{detail}/note', [FundDetailController::class, 'saveNote'])->name('details.note');

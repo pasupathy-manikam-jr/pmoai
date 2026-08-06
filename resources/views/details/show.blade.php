@@ -238,6 +238,21 @@
         @endif
     </details>
 
+    <details id="my-note" class="fd-card fd-chat" {{ ! empty($p['note']) ? 'open' : '' }}>
+        <summary class="fd-eyebrow">My notes on this fund
+            @if (! empty($p['note']))<span class="fd-sum-meta">· saved {{ \Illuminate\Support\Carbon::parse($p['note_at'])->format('d M Y') }}</span>@endif
+        </summary>
+        <form method="POST" action="{{ route('details.note', $detail) }}" class="fd-note-form">
+            @csrf
+            <textarea name="note" rows="4" maxlength="10000"
+                      placeholder="Your own notes — why you hold it, what would make you trim, price levels to watch…">{{ $p['note'] ?? '' }}</textarea>
+            <div class="fd-note-actions">
+                <button type="submit" class="btn">Save note</button>
+                <small>Private to you, stored with this fund's data. Empty + Save clears it.</small>
+            </div>
+        </form>
+    </details>
+
     @if ($priceHistory->count() >= 2)
         @php
             $pts   = $priceHistory->all();
