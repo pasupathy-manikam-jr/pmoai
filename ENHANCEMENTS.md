@@ -156,8 +156,9 @@ The geography work proved the pattern; apply it to the other captured blocks.
   benchmark of your actual exposures.
 - **Income view** — distribution (RII/DP) history + a forward income estimate
   once non-PRS distributions are captured.
-- **Exposure-over-time** — how your country/sector/currency mix drifted as you
-  switched funds.
+- ✅ **Exposure-over-time** — each capture now stores the real currency mix;
+  the "Currency mix over time" Overview panel charts the drift (fills as more
+  captures accrue). Country/sector drift can follow the same way.
 
 ---
 
@@ -179,7 +180,9 @@ The geography work proved the pattern; apply it to the other captured blocks.
 - 🚧 **Wider test coverage** — added: `crossCheck()` (4), currency exposure (2),
   `ReconciliationService` (3: unexplained-drop / redemption-explained / healthy),
   `PortfolioIndices` (4: country→index, macro trio, gold, symbols). Suite now 41.
-  Still open: `IngestStatements` extract-to-static, the simulator JS math.
+  Added `PublicMutualParser` (CSV price path) + `CalendarEvent` parser (5). Suite
+  now 48. Only genuinely-open: simulator switch/fee math (lives in JS — needs a
+  JS runner or a PHP port).
 - ✅ **Data-freshness monitor** — warn when prices/holdings are stale, before you
   act on old numbers.
 
@@ -189,9 +192,10 @@ The geography work proved the pattern; apply it to the other captured blocks.
 
 - ✅ **Per-fund research notes** — your own annotations kept against a specific PMO
   fund.
-- **Exposure-driven calendar** — only dates that move *your* funds: BNM (the
-  ringgit → every foreign fund), the Fed (your ~50% USD exposure), and PMO's own
-  distribution/ex-dates. Not a generic economic calendar.
+- ✅ **Exposure-driven calendar** — `calendar_events` + `pmoai:ingest-calendar` +
+  a paste-your-dates form on the dashboard. Shows only future dates relevant to
+  YOUR exposure (BNM if any foreign, Fed if USD, PMO/other always). You supply
+  the real published dates — nothing invented or fetched.
 - ✅ **Backup & restore** — `pmoai:backup` (pg_dump, auto-prune) + `--restore=` — one-command export of the local PMO dataset.
 
 ---

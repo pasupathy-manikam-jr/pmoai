@@ -112,7 +112,74 @@
         @endforeach
     </div>
 
+    @php
+        // Only dates relevant to YOUR real exposure. BNM (ringgit) matters if
+        // you hold any foreign fund; Fed (USD) if you have USD exposure; PMO /
+        // other always. All dates are ones you entered — nothing invented.
+        $ccyNow = app(\App\Services\PortfolioExposure::class)->currencies();
+        $hasForeign = $ccyNow['foreign_pct'] > 0.5;
+        $hasUsd = collect($ccyNow['rows'])->firstWhere('ccy', 'USD') !== null;
+        $events = \App\Models\CalendarEvent::whereDate('event_date', '>=', now()->toDateString())
+            ->orderBy('event_date')->get()
+            ->filter(fn ($e) => match ($e->kind) {
+                'bnm' => $hasForeign,
+                'fed' => $hasUsd,
+                default => true,
+            })->take(12);
+    @endphp
+    <section id="calendar" class="cal-card">
+        <h2>Dates that move your funds</h2>
+        <p class="cal-sub">Only dates relevant to what you actually hold. You enter the real published schedule (BNM MPC, Fed FOMC, PMO ex-dates) — nothing is invented or fetched.</p>
+        @if (session('status'))<p class="idx-ok">✓ {{ session('status') }}</p>@endif
+
+        @if ($events->isNotEmpty())
+            <ul class="cal-list">
+                @foreach ($events as $e)
+                    @php $days = (int) now()->startOfDay()->diffInDays($e->event_date, false); @endphp
+                    <li>
+                        <span class="cal-date">{{ $e->event_date->format('d M') }}</span>
+                        <span class="cal-when">{{ $days === 0 ? 'today' : ($days === 1 ? 'tomorrow' : 'in '.$days.'d') }}</span>
+                        <span class="cal-kind cal-{{ $e->kind }}">{{ strtoupper($e->kind) }}</span>
+                        <span class="cal-label">{{ $e->label }}<br><small>{{ $e->why() }}</small></span>
+                        <form method="POST" action="{{ route('calendar.delete', $e) }}" class="cal-del"
+                              data-confirm="Remove this date?" data-confirm-yes="Remove">
+                            @csrf
+                            <button type="submit" title="Remove" aria-label="Remove">✕</button>
+                        </form>
+                    </li>
+                @endforeach
+            </ul>
+        @else
+            <p class="cal-empty">No upcoming dates yet. Add the real ones below (or run <code>php artisan pmoai:ingest-calendar dates.txt</code>).</p>
+        @endif
+
+        <details class="cal-add">
+            <summary>+ Add dates</summary>
+            <form method="POST" action="{{ route('calendar.add') }}">
+                @csrf
+                <p class="cal-sub">One per line: <code>YYYY-MM-DD | kind | label</code> — kind = <b>bnm</b>, <b>fed</b>, <b>pmo</b>, or <b>other</b>.</p>
+                <textarea name="dates" rows="4" placeholder="2026-09-04 | bnm | MPC meeting&#10;2026-09-17 | fed | FOMC decision&#10;2026-12-15 | pmo | e-AI distribution ex-date"></textarea>
+                <button type="submit" class="idx-refresh">Save dates</button>
+            </form>
+        </details>
+    </section>
+
     <style>
+        .cal-card { border: 1px solid #e5e5e5; border-radius: 8px; padding: 14px 16px; margin: 20px 0; background: #fff; }
+        .cal-card h2 { margin: 0 0 2px; font-size: 16px; }
+        .cal-sub { color: #777; font-size: 12px; margin: 0 0 10px; }
+        .cal-list { list-style: none; margin: 0 0 10px; padding: 0; }
+        .cal-list li { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+        .cal-date { font-weight: 700; min-width: 52px; font-variant-numeric: tabular-nums; }
+        .cal-when { color: #999; font-size: 11px; min-width: 56px; }
+        .cal-kind { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; color: #fff; min-width: 40px; text-align: center; }
+        .cal-bnm { background: #c8102e; } .cal-fed { background: #2a6fc9; } .cal-pmo { background: #1a7f5a; } .cal-other { background: #888; }
+        .cal-label { flex: 1; line-height: 1.3; } .cal-label small { color: #888; }
+        .cal-del button { border: 1px solid #e6e4de; background: #fbfbf9; color: #999; cursor: pointer; padding: 2px 7px; border-radius: 5px; font-size: 12px; }
+        .cal-del button:hover { background: #c8102e; color: #fff; border-color: #c8102e; }
+        .cal-empty { color: #888; font-size: 13px; margin: 6px 0 10px; }
+        .cal-add summary { cursor: pointer; font-size: 13px; color: #c8102e; }
+        .cal-add textarea { width: 100%; box-sizing: border-box; margin: 8px 0; padding: 8px 10px; font: inherit; font-size: 12px; border: 1px solid #e6e4de; border-radius: 6px; resize: vertical; }
         .idx-intro { color: #666; margin: 0 0 16px; font-size: 13px; }
         .idx-xcheck { font-size: 12px; margin: 0 0 14px; padding: 6px 10px; border-radius: 6px; }
         .idx-xcheck.ok { background: #eef7f0; color: #1a7f5a; }

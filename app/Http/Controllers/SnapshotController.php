@@ -355,11 +355,15 @@ class SnapshotController extends Controller
         // "Does the data still add up?" — total-drift + freshness checks.
         $reconcile = app(\App\Services\ReconciliationService::class)->check();
 
+        // Currency-mix history (accrues from the first capture that stored it).
+        $expoHistory = \App\Models\PortfolioSnapshot::whereNotNull('exposure')
+            ->orderBy('snap_date')->get(['snap_date', 'exposure']);
+
         return view('snapshots.show', compact(
             'snapshot', 'funds', 'detailMap', 'detailByCode', 'ideas', 'portfolio',
             'alerts', 'history', 'review', 'past', 'prsThisYear', 'prsXirr',
             'transactions', 'pending', 'backtest', 'attribution', 'reconcile',
-            'prsHistory', 'prsTotals',
+            'prsHistory', 'prsTotals', 'expoHistory',
         ));
     }
 
@@ -653,11 +657,15 @@ class SnapshotController extends Controller
         // Portfolio value history: one row per day, refreshed on every
         // holdings capture — the equity curve's data source.
         $held = FundDetail::whereRaw("payload->'position'->>'invested' is not null")->get();
+        // Currency mix today → {ccy: pct}, so exposure drift accrues over time.
+        $expo = collect(app(\App\Services\PortfolioExposure::class)->currencies()['rows'])
+            ->mapWithKeys(fn ($r) => [$r['ccy'] => round($r['pct'], 1)])->all();
         \App\Models\PortfolioSnapshot::updateOrCreate(
             ['snap_date' => now()->toDateString()],
             [
                 'invested' => $held->sum(fn ($d) => (float) $d->payload['position']['invested']),
                 'value'    => $held->sum(fn ($d) => (float) $d->payload['position']['current_value']),
+                'exposure' => $expo ?: null,
             ],
         );
 

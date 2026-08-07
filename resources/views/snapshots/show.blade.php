@@ -510,6 +510,32 @@
             </table>
         </details>
 
+        @php
+            // Currency mix over time — top currencies tracked across captures.
+            $topCcys = collect($ccyx['rows'])->take(5)->pluck('ccy')->all();
+        @endphp
+        <details class="stress-box">
+            <summary class="stress-h">📈 Currency mix over time</summary>
+            @if ($expoHistory->count() >= 2)
+                <p class="stress-intro">How your top currencies' share of the book has drifted as you switch funds. One column per capture.</p>
+                <table class="stress-tbl">
+                    <tr><th>Currency</th>@foreach ($expoHistory as $s)<th class="r">{{ $s->snap_date->format('d M') }}</th>@endforeach</tr>
+                    @foreach ($topCcys as $ccy)
+                        <tr>
+                            <td>{{ $ccy }}</td>
+                            @foreach ($expoHistory as $s)
+                                @php $v = $s->exposure[$ccy] ?? null; @endphp
+                                <td class="r">{{ $v !== null ? number_format($v, 1).'%' : '—' }}</td>
+                            @endforeach
+                        </tr>
+                    @endforeach
+                </table>
+                <small class="ps-sub">Built from the real captured country breakdown at each capture.</small>
+            @else
+                <p class="stress-intro">Tracking started {{ $expoHistory->first()?->snap_date->format('d M Y') ?? 'today' }}. The drift table appears once there are two or more captures on different days — keep capturing and it fills in.</p>
+            @endif
+        </details>
+
         @if ($attribution['tx_count'] > 0)
             @php $feeTot = $attribution['sales_charge'] + $attribution['sst']; @endphp
             <details class="stress-box">

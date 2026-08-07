@@ -28,6 +28,19 @@ Route::get('/rebalance', [SnapshotController::class, 'rebalance'])->name('rebala
 Route::get('/snapshots/{snapshot}/report', [SnapshotController::class, 'report'])->name('snapshots.report');
 
 Route::view('/dashboard', 'dashboard')->name('dashboard');
+
+// Your-funds calendar: you paste real published dates; we only display them.
+Route::post('/calendar', function (\Illuminate\Http\Request $r) {
+    $data = $r->validate(['dates' => ['required', 'string', 'max:10000']]);
+    $n = \App\Models\CalendarEvent::ingestText($data['dates']);
+
+    return redirect()->route('dashboard')->withFragment('calendar')->with('status', "{$n} date(s) saved.");
+})->name('calendar.add');
+Route::post('/calendar/{event}/delete', function (\App\Models\CalendarEvent $event) {
+    $event->delete();
+
+    return redirect()->route('dashboard')->withFragment('calendar');
+})->name('calendar.delete');
 Route::view('/glossary', 'glossary')->name('glossary');
 
 // Refresh live market quotes on demand (button on the dashboard).
