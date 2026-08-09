@@ -3,12 +3,22 @@
 namespace App\Services;
 
 /**
- * Builds the single-fund analysis prompt. Shared by ClaudeService and
- * GroqService so the system contract + data layout stay identical
+ * Builds the analysis, chat, extraction and screener prompts. Shared by every
+ * Llm implementation so the system contract + data layout stay identical
  * regardless of provider.
  */
 class FundAnalysisPrompt
 {
+    /** Extraction instruction for parsing a pasted Public Mutual page. */
+    public const EXTRACT_SYSTEM = 'Extract Malaysian Public Mutual funds. Numbers only, '
+        .'strip symbols and % signs. Unknown fields => null.';
+
+    /** Shape of one extracted fund row, described for providers without tool schemas. */
+    public const EXTRACT_SHAPE = '{"funds":[{"name":"<string>","fund_type":"<string>",'
+        .'"shariah":<true|false>,"unit_price":<number|null>,"selling_price":<number|null>,'
+        .'"return_1y":<number|null>,"return_3y":<number|null>,"return_5y":<number|null>,'
+        .'"currency":"<string>"}]}';
+
     public const SYSTEM = <<<'TXT'
 You are a cautious Malaysian unit-trust analyst. Analyse ONE Public Mutual fund
 using ONLY the figures explicitly provided below.
@@ -240,10 +250,14 @@ TXT;
     private static function renderFactsheet(array $f): string
     {
         $lines = ["period: {$f['period']}"];
-        $nav   = $f['fund_size_nav_myr'] ?? null;
-        $units = $f['fund_size_units']   ?? null;
-        if ($nav)   $lines[] = 'NAV (RM): '.number_format((float) $nav, 0);
-        if ($units) $lines[] = 'units outstanding: '.number_format((float) $units, 0);
+        $nav = $f['fund_size_nav_myr'] ?? null;
+        $units = $f['fund_size_units'] ?? null;
+        if ($nav) {
+            $lines[] = 'NAV (RM): '.number_format((float) $nav, 0);
+        }
+        if ($units) {
+            $lines[] = 'units outstanding: '.number_format((float) $units, 0);
+        }
         if (! empty($f['volatility_factor'])) {
             $lines[] = "volatility_factor (Lipper): {$f['volatility_factor']} ({$f['volatility_class']})";
         }
@@ -267,22 +281,30 @@ TXT;
         }
         if (! empty($f['geo_foreign'])) {
             $bits = [];
-            foreach ($f['geo_foreign'] as $k => $v) $bits[] = "{$k} {$v}%";
+            foreach ($f['geo_foreign'] as $k => $v) {
+                $bits[] = "{$k} {$v}%";
+            }
             $lines[] = 'geo_foreign: '.implode(', ', $bits);
         }
         if (! empty($f['asset_allocation'])) {
             $bits = [];
-            foreach ($f['asset_allocation'] as $k => $v) $bits[] = "{$k} {$v}%";
+            foreach ($f['asset_allocation'] as $k => $v) {
+                $bits[] = "{$k} {$v}%";
+            }
             $lines[] = 'asset_allocation: '.implode(', ', $bits);
         }
         if (! empty($f['fx_exposure'])) {
             $bits = [];
-            foreach ($f['fx_exposure'] as $k => $v) $bits[] = "{$k} {$v}%";
+            foreach ($f['fx_exposure'] as $k => $v) {
+                $bits[] = "{$k} {$v}%";
+            }
             $lines[] = 'fx_exposure: '.implode(', ', $bits);
         }
         if (! empty($f['top_sectors'])) {
             $bits = [];
-            foreach ($f['top_sectors'] as $k => $v) $bits[] = "{$k} {$v}%";
+            foreach ($f['top_sectors'] as $k => $v) {
+                $bits[] = "{$k} {$v}%";
+            }
             $lines[] = 'top_sectors: '.implode(', ', $bits);
         }
         if (! empty($f['top_holdings'])) {
@@ -290,9 +312,145 @@ TXT;
         }
         if (! empty($f['distributions'])) {
             $bits = [];
-            foreach ($f['distributions'] as $d) $bits[] = "{$d['key']}={$d['sen']}sen ({$d['yield_pct']}%)";
+            foreach ($f['distributions'] as $d) {
+                $bits[] = "{$d['key']}={$d['sen']}sen ({$d['yield_pct']}%)";
+            }
             $lines[] = 'distributions: '.implode(', ', $bits);
         }
+
         return implode("\n", $lines);
+    }
+
+    /**
+     * System contract for the multi-fund screener.
+     *
+     * $webTools lifts hard rule 5 for providers that can actually search;
+     * without it the model must justify only from the supplied data lines.
+     */
+    public static function screenerSystem(bool $webTools = false): string
+    {
+        $rule5 = $webTools
+            ? '(5) You DO have web access. Any market/news claim must carry its source and '
+                .'date inline, e.g. "(Reuters, 10 Jul 2026)" — no source+date means do not '
+                .'write the claim. Live findings never replace the supplied fund numbers. '
+            : '(5) You have NO web access and NO knowledge of current markets or news. '
+                .'NEVER cite market conditions, economic events, news, wars, elections, or '
+                .'interest rates. Justify ONLY from the data lines and the user\'s stated goals. ';
+
+        return 'You are a CONSERVATIVE screener for the PUBLIC list of Malaysian Public Mutual '
+            .'unit trust funds. Each line: '
+            .'CODE | name | S=Shariah(else -) | OWNED(only if the user holds it) | '
+            .'1Y/3Y/5Y trailing return % | TAG. "na" = not provided. TAG meanings: '
+            .'NEAR-HIGH = REAL accumulated price history shows price is at/near its peak — '
+            .'strongest buy-the-top warning, trust this over returns. '
+            .'OFF-PEAK = real history shows price is well below its peak (X% below). '
+            .'EXTENDED = no real history yet, but 1Y far above long-run rate so price likely '
+            .'already ran up. STEADY = durable multi-year compounding. LAGGING = weak. '
+            .'NORMAL = nothing flagged. Actions: '
+            .'For funds NOT marked OWNED: BUY = attractive entry NOW (STEADY/NORMAL/OFF-PEAK, '
+            .'fits goals); WATCH = quality but NEAR-HIGH / EXTENDED or unclear — wait for a '
+            .'pullback, do not buy now; AVOID = weak returns or poor fit with goals. '
+            .'For funds marked OWNED (the user currently holds them): action MUST be '
+            .'KEEP or SELL — SELL if LAGGING / weak returns / poor fit, or NEAR-HIGH where '
+            .'locking in the gain is prudent for the user\'s goals; KEEP otherwise. Every '
+            .'OWNED fund MUST get a recommendation. '
+            .'HARD RULES: (1) NEAR-HIGH or EXTENDED funds can NEVER be BUY — mark WATCH and say '
+            .'price is at/near its high. (2) A very high 1Y return is a RISK signal, not a buy '
+            .'reason. (3) Prefer STEADY/OFF-PEAK funds aligned to goals. (4) "na" returns => say '
+            .'data unavailable, do not invent history. '.$rule5
+            .'(6) Every number in a rationale must be '
+            .'copied EXACTLY from that fund\'s data line — never compute or estimate new '
+            .'numbers. Respect Shariah if stated. '
+            .'Select all OWNED funds plus the 10-15 most relevant others. '
+            .'Return ONLY a JSON object, no prose, exactly: '
+            .'{"recommendations":[{"fund_code":"<CODE copied from the line>",'
+            .'"fund_name":"<exact name from the list>",'
+            .'"action":"buy|watch|avoid|keep|sell","target_weight":<number 0-100>,'
+            .'"rationale":"<why, state the TAG>"}]}';
+    }
+
+    /**
+     * Compact one line per fund, plus a derived peak-risk tag. With no price
+     * history, a 1Y return far above the long-run annualised rate means the
+     * fund already ran up (price near its high) -> mean-reversion risk.
+     *
+     * OWNED funds always go in (they need a keep/sell verdict). The rest is a
+     * mixed shortlist: ~60% top 3Y performers plus steadier 5Y compounders, so
+     * BUY candidates aren't exclusively peaked flyers that all end up tagged
+     * EXTENDED/AVOID. $maxLines originally existed to fit a free-tier token-per-minute cap;
+     * it is kept as the default so recommendations stay comparable across
+     * providers.
+     *
+     * @param  array<int, array>  $funds
+     */
+    public static function screenerLines(array $funds, int $maxLines = 35): string
+    {
+        $all = collect($funds);
+        $owned = $all->filter(fn ($f) => $f['owned'] ?? false)->values();
+        $pool = $all->reject(fn ($f) => $f['owned'] ?? false)
+            ->sortByDesc(fn ($f) => $f['return_3y'] ?? $f['return_1y'] ?? -999)
+            ->values();
+        $slots = max(0, $maxLines - $owned->count());
+        $top = $pool->take(intdiv($slots * 3, 5));
+        $mid = $pool->slice($top->count())
+            ->sortByDesc(fn ($f) => $f['return_5y'] ?? -999)
+            ->take($slots - $top->count());
+
+        return $owned->concat($top)->concat($mid)->values()->map(function ($f) {
+            $r1 = is_numeric($f['return_1y'] ?? null) ? (float) $f['return_1y'] : null;
+            $r5 = is_numeric($f['return_5y'] ?? null) ? (float) $f['return_5y'] : null;
+            $ann5 = $r5 !== null ? $r5 / 5 : null;          // rough annualised 5Y
+            $tag = 'NORMAL';
+            $hd = (int) ($f['hist_days'] ?? 0);
+            if ($hd >= 5 && array_key_exists('near_high', $f) && $f['near_high'] !== null) {
+                // Real accumulated price history available — use it.
+                $off = $f['pct_below_peak'];
+                $tag = $f['near_high']
+                    ? "NEAR-HIGH(at/near {$hd}d peak, {$off}% below peak)"
+                    : "OFF-PEAK({$off}% below {$hd}d peak)";
+            } elseif ($r1 !== null && ($r1 > 60 || ($ann5 !== null && $ann5 > 0 && $r1 > 3 * $ann5))) {
+                $tag = 'EXTENDED(1Y≫long-run,price likely near high)';
+            } elseif ($r1 !== null && $r5 !== null && $r1 < $ann5) {
+                $tag = 'LAGGING';
+            } elseif ($r5 !== null && $ann5 >= 6 && $r1 !== null && $r1 <= 2 * $ann5) {
+                $tag = 'STEADY';
+            }
+
+            return implode(' | ', array_values(array_filter([
+                $f['code'] ?? '??',
+                $f['name'],
+                ($f['shariah'] ?? false) ? 'S' : '-',
+                ($f['owned'] ?? false) ? 'OWNED' : null,
+                '1Y '.($f['return_1y'] ?? 'na'),
+                '3Y '.($f['return_3y'] ?? 'na'),
+                '5Y '.($f['return_5y'] ?? 'na'),
+                $tag,
+            ], fn ($v) => $v !== null)));
+        })->implode("\n");
+    }
+
+    /**
+     * Normalise a raw screener JSON payload into recommendation rows.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function parseRecommendations(string $content): array
+    {
+        $content = preg_replace('#<think>.*?</think>#s', '', $content);
+        if (preg_match('/\{.*\}/s', $content, $m)) {
+            $content = $m[0];
+        }
+        $data = json_decode(trim($content), true);
+        $recs = $data['recommendations'] ?? (is_array($data) ? $data : []);
+
+        return collect($recs)
+            ->filter(fn ($r) => (! empty($r['fund_name']) || ! empty($r['fund_code'])) && ! empty($r['action']))
+            ->map(fn ($r) => [
+                'fund_code' => isset($r['fund_code']) ? (string) $r['fund_code'] : null,
+                'fund_name' => (string) ($r['fund_name'] ?? ''),
+                'action' => strtolower(trim((string) $r['action'])),
+                'target_weight' => $r['target_weight'] ?? null,
+                'rationale' => (string) ($r['rationale'] ?? ''),
+            ])->values()->all();
     }
 }

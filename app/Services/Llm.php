@@ -3,8 +3,8 @@
 namespace App\Services;
 
 /**
- * LLM provider contract. Implementations: ClaudeService (Anthropic, paid,
- * web search), GroqService (free tier, testing, no web search).
+ * LLM provider contract. Implementations: ClaudeCliService (Claude Code CLI,
+ * billed to the subscription), ClaudeService (Anthropic API), OpenAiService.
  */
 interface Llm
 {
@@ -13,7 +13,7 @@ interface Llm
 
     /**
      * @param  array<int, array>  $funds
-     * @param  string[]           $recalled
+     * @param  string[]  $recalled
      * @return array<int, array<string, mixed>>
      */
     public function recommend(array $funds, string $feedback, array $recalled = []): array;

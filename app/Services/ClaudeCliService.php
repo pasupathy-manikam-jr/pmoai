@@ -9,24 +9,43 @@ use Symfony\Component\Process\Process;
  * Claude Code CLI provider — shells out to `claude -p` (headless mode),
  * billed against the user's Claude subscription instead of API credits.
  *
- * The deep-reasoning surface (single-fund analysis) goes to Claude; the
- * mechanical extraction/screening calls delegate to GroqService so the
- * free tier keeps doing the bulk parsing work.
+ * Every surface runs through the CLI. There is no per-token cost here, so
+ * unlike the HTTP providers there is no payload trimming for rate limits;
+ * the screener still uses the shared shortlist so recommendations stay
+ * comparable across providers.
  *
  * Requires the `claude` binary logged in for the user PHP runs as.
  */
 class ClaudeCliService implements Llm
 {
-    public function __construct(private GroqService $fallback = new GroqService()) {}
-
     public function extractFunds(string $rawText): array
     {
-        return $this->fallback->extractFunds($rawText);
+        // No tool-calling over the CLI's text interface, so the schema is
+        // described in the prompt and the JSON is parsed back out.
+        $prompt = FundAnalysisPrompt::EXTRACT_SYSTEM
+            ."\n\nReturn ONLY a JSON object, no prose, no code fences, exactly:\n"
+            .FundAnalysisPrompt::EXTRACT_SHAPE
+            ."\n\n---\n\nPAGE TEXT:\n".$rawText;
+
+        $out = $this->run($prompt, webTools: false);
+
+        if (preg_match('/\{.*\}/s', $out, $m)) {
+            $out = $m[0];
+        }
+        $data = json_decode(trim($out), true);
+
+        return is_array($data['funds'] ?? null) ? $data['funds'] : [];
     }
 
     public function recommend(array $funds, string $feedback, array $recalled = []): array
     {
-        return $this->fallback->recommend($funds, $feedback, $recalled);
+        $recalledTxt = $recalled ? "\n\nPrior stated preferences:\n- ".implode("\n- ", $recalled) : '';
+
+        $prompt = FundAnalysisPrompt::screenerSystem(webTools: true)
+            ."\n\n---\n\nUser feedback / goals:\n{$feedback}{$recalledTxt}"
+            ."\n\nFunds:\n".FundAnalysisPrompt::screenerLines($funds);
+
+        return FundAnalysisPrompt::parseRecommendations($this->run($prompt));
     }
 
     public function analyzeFund(array $fund, array $context = []): string
@@ -76,7 +95,13 @@ TXT;
         return $this->run($prompt);
     }
 
-    private function run(string $prompt): string
+    /**
+     * Run an arbitrary prompt through the CLI.
+     *
+     * $webTools is off for mechanical work (extraction) so the model cannot
+     * wander into searches that add latency without improving a parse.
+     */
+    private function run(string $prompt, bool $webTools = true): string
     {
         // Web requests: MAMP's max_execution_time would kill a 60s+ CLI run.
         set_time_limit(300);
@@ -91,10 +116,10 @@ TXT;
         $user = $pw['name'] ?? basename((string) $home);
 
         $env = [
-            'HOME'    => $home,
-            'USER'    => $user,
+            'HOME' => $home,
+            'USER' => $user,
             'LOGNAME' => $user,
-            'PATH'    => dirname($bin).':/usr/bin:/bin',
+            'PATH' => dirname($bin).':/usr/bin:/bin',
         ];
         // PHP-FPM runs outside the macOS security session, so the CLI cannot
         // read its Keychain login there. A long-lived token from
@@ -103,8 +128,14 @@ TXT;
             $env['CLAUDE_CODE_OAUTH_TOKEN'] = $token;
         }
 
+        $command = [$bin, '-p', '--output-format', 'text'];
+        if ($webTools) {
+            $command[] = '--allowedTools';
+            $command[] = 'WebSearch,WebFetch';
+        }
+
         $process = new Process(
-            [$bin, '-p', '--output-format', 'text', '--allowedTools', 'WebSearch,WebFetch'],
+            $command,
             base_path(),
             $env,
             $prompt,
