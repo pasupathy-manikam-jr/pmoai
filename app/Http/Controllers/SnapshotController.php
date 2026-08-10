@@ -721,8 +721,37 @@ class SnapshotController extends Controller
     {
         $plan = $advisor->analyze();
         $ai = \Illuminate\Support\Facades\Cache::get(\App\Jobs\AdviseNarrativeJob::KEY);
+        // Armed price triggers, grouped by fund, to show/allow-remove per row.
+        $alerts = \App\Models\Alert::where('active', true)->whereNull('fired_at')
+            ->get()->groupBy(fn ($a) => strtoupper($a->fund_code));
 
-        return view('snapshots.advisor', compact('plan', 'ai'));
+        return view('snapshots.advisor', compact('plan', 'ai', 'alerts'));
+    }
+
+    /** Arm a price trigger from the advisor (act at a better moment). */
+    public function storeAlert(Request $request)
+    {
+        $data = $request->validate([
+            'fund_code' => ['required', 'string', 'max:20'],
+            'condition' => ['required', 'in:below,above'],
+            'level'     => ['required', 'numeric', 'min:0'],
+            'label'     => ['nullable', 'string', 'max:255'],
+        ]);
+
+        \App\Models\Alert::updateOrCreate(
+            ['fund_code' => strtoupper($data['fund_code']), 'condition' => $data['condition'], 'level' => $data['level']],
+            ['label' => $data['label'] ?: (strtoupper($data['fund_code']).' '.$data['condition'].' '.$data['level']),
+                'active' => true, 'fired_at' => null, 'fired_price' => null],
+        );
+
+        return back()->with('status', 'Alert armed — it fires on the next quote/price capture.')->withFragment('board');
+    }
+
+    public function deleteAlert(\App\Models\Alert $alert)
+    {
+        $alert->delete();
+
+        return back()->with('status', 'Alert removed.')->withFragment('board');
     }
 
     /** Queue the plain-English AI summary of the advisor plan (slow provider). */

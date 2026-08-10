@@ -230,6 +230,21 @@ class PortfolioAdvisor
 
             $timing = $this->timingScore($entry, $h['r3']);
 
+            // Pre-filled alert to act at a better moment: a ceiling to trim
+            // into for a rising over-weight fund; a dip level for a better
+            // entry when deploying / topping up. User can edit before arming.
+            $price = $entry['last'] ?? null;
+            $alertCond = $alertLevel = null;
+            if ($price && ! in_array($action, ['HOLD'], true) && $h['cat'] !== 'PRS') {
+                if ($action === 'TRIM') {
+                    $alertCond = 'above';
+                    $alertLevel = round($price * 1.10, 4);   // +10% ceiling
+                } else {
+                    $alertCond = 'below';
+                    $alertLevel = round($price * 0.95, 4);   // −5% dip = better entry
+                }
+            }
+
             $rows[] = [
                 'name'     => $h['name'],
                 'code'     => $h['code'],
@@ -245,6 +260,9 @@ class PortfolioAdvisor
                 'factors'  => $timing['factors'] ?? [],
                 'switch_to' => $better['name'] ?? null,
                 'why'      => $why,
+                'price'      => $price,
+                'alert_cond'  => $alertCond,
+                'alert_level' => $alertLevel,
                 '_p'       => $priority[$action] ?? 9,
             ];
         }
@@ -434,7 +452,7 @@ class PortfolioAdvisor
             [$label, $good] = ['mid-range', null];
         }
 
-        return ['pos' => round($pos), 'trend' => round($trend, 1), 'label' => $label, 'good' => $good];
+        return ['pos' => round($pos), 'trend' => round($trend, 1), 'label' => $label, 'good' => $good, 'last' => round($last, 4)];
     }
 
     /** % change over the last ~N captured price points; null if too few. */

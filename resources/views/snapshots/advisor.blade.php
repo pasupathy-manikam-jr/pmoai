@@ -53,10 +53,11 @@
         @if (! empty($plan['board']))
             <section class="adv-grp">
                 <h2>Your funds — one call each</h2>
-                <p class="adv-sub">The single thing to consider per fund, sorted so what needs attention is on top. <b>This app only plans</b> — "Plan" sets the move up here; you place the actual switch/redeem/top-up in your Public Mutual account.</p>
+                <p class="adv-sub">The single thing to consider per fund, sorted so what needs attention is on top. <b>This app only plans</b> — "Plan" sets the move up here; you place the actual switch/redeem/top-up in your Public Mutual account. <b>Alert me</b> arms a price trigger so you act at a better moment (fires on the next price capture).</p>
+                @if (session('status'))<p class="adv-flash">✓ {{ session('status') }}</p>@endif
                 <table class="board">
                     <thead>
-                        <tr><th>Do</th><th>Fund</th><th class="r">Weight</th><th class="r">3Y</th><th>Risk</th><th>Timing now</th><th>Why</th><th>Act</th></tr>
+                        <tr><th>Do</th><th>Fund</th><th class="r">Weight</th><th class="r">3Y</th><th>Risk</th><th>Timing now</th><th>Why</th><th>Act</th><th>Alert me</th></tr>
                     </thead>
                     <tbody>
                         @foreach ($plan['board'] as $r)
@@ -93,6 +94,28 @@
                                         <a href="{{ $planHref }}" @if ($ext) target="_blank" rel="noopener" @endif class="board-plan">{{ $ext ? 'Plan it ↗' : 'See plan ↓' }}</a>
                                     @else
                                         <span class="board-na">—</span>
+                                    @endif
+                                </td>
+                                <td class="board-alert">
+                                    @php $existing = $alerts[strtoupper((string) $r['code'])] ?? collect(); @endphp
+                                    @foreach ($existing as $al)
+                                        <div class="al-armed">
+                                            🔔 {{ $al->condition }} RM{{ rtrim(rtrim(number_format($al->level, 4), '0'), '.') }}
+                                            <form method="POST" action="{{ route('alerts.delete', $al) }}" class="al-del" data-confirm="Remove this alert?" data-confirm-yes="Remove">@csrf<button type="submit" title="Remove">✕</button></form>
+                                        </div>
+                                    @endforeach
+                                    @if ($r['alert_level'])
+                                        <form method="POST" action="{{ route('alerts.store') }}" class="al-arm">
+                                            @csrf
+                                            <input type="hidden" name="fund_code" value="{{ $r['code'] }}">
+                                            <input type="hidden" name="label" value="Advisor: {{ \Illuminate\Support\Str::of($r['name'])->after('PUBLIC ') }} {{ $r['alert_cond'] }} — {{ strtolower($r['action']) }} timing">
+                                            <select name="condition" class="al-cond">
+                                                <option value="below" @selected($r['alert_cond'] === 'below')>dips below</option>
+                                                <option value="above" @selected($r['alert_cond'] === 'above')>rises above</option>
+                                            </select>
+                                            <input type="number" step="0.0001" min="0" name="level" value="{{ $r['alert_level'] }}" class="al-lvl">
+                                            <button type="submit" class="al-btn" title="Arm this price trigger">🔔</button>
+                                        </form>
                                     @endif
                                 </td>
                             </tr>
@@ -242,6 +265,15 @@
         .board-plan { font-size: 11px; text-decoration: none; padding: 3px 7px; border-radius: 5px; border: 1px solid #cdddf5; color: #2a6fc9; }
         .board-plan:hover { background: #2a6fc9; color: #fff; }
         .board-na { color: #ccc; }
+        .adv-flash { background: #e8f4ee; color: #1a7f5a; font-size: 12px; padding: 7px 11px; border-radius: 6px; margin: 0 0 10px; }
+        .al-arm { display: flex; align-items: center; gap: 3px; }
+        .al-cond { font-size: 11px; padding: 3px 4px; border: 1px solid #ddd; border-radius: 4px; }
+        .al-lvl { width: 74px; font-size: 11px; padding: 3px 5px; border: 1px solid #ddd; border-radius: 4px; font-variant-numeric: tabular-nums; }
+        .al-btn { border: 1px solid #b8860b; background: #fff; border-radius: 4px; cursor: pointer; padding: 2px 6px; }
+        .al-btn:hover { background: #fff6e0; }
+        .al-armed { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #8a6a00; margin-bottom: 3px; white-space: nowrap; }
+        .al-del { margin: 0; } .al-del button { border: 0; background: none; color: #bbb; cursor: pointer; font-size: 11px; padding: 0 2px; }
+        .al-del button:hover { color: #c0392b; }
         .adv-ai { border: 1px solid #e2e8f2; background: #f7f9fc; border-radius: 10px; padding: 13px 16px; margin: 0 0 20px; }
         .adv-ai-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
         .adv-ai-h { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #667; font-weight: 600; }
