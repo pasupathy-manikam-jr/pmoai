@@ -36,10 +36,13 @@ class AdviseNarrativeJob implements ShouldQueue
 
             $question = "Below are automated screener suggestions for my Public Mutual unit-trust portfolio, "
                 ."each already backed by real fund numbers (3-year return, risk, category) and the real Public "
-                ."Mutual switch rules. Write a SHORT plain-English summary for a non-expert (about 6–8 sentences, "
-                ."no jargon): what stands out, what to weigh, and in what order I might think about them. Do NOT "
-                ."invent any numbers or funds — only use what's given. These are past-performance screens, so note "
-                ."they don't predict the future. End with one line reminding this isn't licensed financial advice.\n\n"
+                ."Mutual switch rules.\n\n"
+                ."Write a plain-English summary for a non-expert. FORMAT STRICTLY as 4–6 short bullet points, "
+                ."each on its own line starting with '- ', one idea per bullet, one or two sentences each, no jargon. "
+                ."Start each bullet with a bold lead word in **double asterisks** (e.g. **Concentration:**, **Cash:**, "
+                ."**Switch:**, **Diversify:**, **Timing:**). Keep numbers exactly as given — do NOT invent any numbers "
+                ."or funds. After the bullets add one final line starting with '- ' that reminds this is past-performance "
+                ."information, not licensed financial advice.\n\n"
                 ."SUGGESTIONS:\n".$planText;
 
             $fund = ['name' => 'Whole portfolio', 'fund_type' => 'Portfolio', 'risk' => null];

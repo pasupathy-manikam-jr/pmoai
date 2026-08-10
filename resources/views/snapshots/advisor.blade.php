@@ -22,7 +22,27 @@
             @elseif (($ai['status'] ?? null) === 'failed')
                 <p class="neg">Couldn't generate a summary: {{ $ai['error'] ?? 'unknown error' }}</p>
             @elseif (! empty($ai['text']))
-                <div class="adv-ai-out">{!! nl2br(e($ai['text'])) !!}</div>
+                @php
+                    // Split into bullet lines; bold **lead:**; tint RM amounts,
+                    // %s and the disclaimer line.
+                    $lines = collect(preg_split('/\n+/', trim($ai['text'])))
+                        ->map(fn ($l) => trim(preg_replace('/^\s*[-*•]\s*/', '', $l)))
+                        ->filter()
+                        ->values();
+                    $fmt = function ($l) {
+                        $l = e($l);
+                        $l = preg_replace('/\*\*(.+?)\*\*/', '<b>$1</b>', $l);
+                        $l = preg_replace('/(RM\s?[\d,]+)/', '<span class="adv-num">$1</span>', $l);
+                        $l = preg_replace('/(-?\d+(?:\.\d+)?%)/', '<span class="adv-num">$1</span>', $l);
+                        return $l;
+                    };
+                @endphp
+                <ul class="adv-ai-list">
+                    @foreach ($lines as $l)
+                        @php $isNote = (bool) preg_match('/not licensed|licensed financial advice|isn.t.{0,20}advice/i', $l); @endphp
+                        <li class="{{ $isNote ? 'adv-ai-note' : '' }}">{!! $fmt($l) !!}</li>
+                    @endforeach
+                </ul>
                 <p class="adv-ai-src">AI-written from the screener's own figures · {{ $ai['at'] ?? '' }}</p>
             @else
                 <p class="adv-ai-empty">The suggestions below are already explained line by line. Want it tied together in one short paragraph? Click <b>Explain with AI</b> — it only rewords the figures above, never invents.</p>
@@ -126,7 +146,7 @@
     </div>
 
     <style>
-        .adv { max-width: 860px; }
+        .adv { max-width: none; }
         .adv-lead { color: #555; font-size: 13px; line-height: 1.5; margin: 0 0 8px; }
         .adv-warn { background: #fdf3e7; color: #8a6a00; font-size: 12px; padding: 8px 11px; border-radius: 6px; margin: 0 0 18px; }
         .adv-none { background: #eef7f0; color: #1a7f5a; padding: 12px 14px; border-radius: 8px; }
@@ -158,6 +178,12 @@
         .adv-ai-run { color: #8a6a00; font-size: 13px; margin: 8px 0 0; }
         .adv-ai-empty { color: #778; font-size: 12px; margin: 8px 0 0; line-height: 1.5; }
         .adv-ai-out { font-size: 13.5px; line-height: 1.6; color: #333; margin: 8px 0 0; }
+        .adv-ai-list { margin: 10px 0 0; padding: 0; list-style: none; }
+        .adv-ai-list li { padding: 7px 0; font-size: 13.5px; line-height: 1.55; color: #333; border-bottom: 1px solid #eef0f5; }
+        .adv-ai-list li:last-child { border-bottom: 0; }
+        .adv-ai-list li b { color: #1c2b45; }
+        .adv-ai-list .adv-num { color: #c0392b; font-weight: 600; font-variant-numeric: tabular-nums; }
+        .adv-ai-list li.adv-ai-note { color: #8a8f98; font-size: 12px; font-style: italic; }
         .adv-ai-src { font-size: 11px; color: #aab; margin: 6px 0 0; }
     </style>
 
