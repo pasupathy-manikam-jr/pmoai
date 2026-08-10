@@ -49,6 +49,34 @@
             @endif
         </div>
 
+        {{-- ACTION BOARD — one clear call per held fund ---------------- --}}
+        @if (! empty($plan['board']))
+            <section class="adv-grp">
+                <h2>Your funds — one call each</h2>
+                <p class="adv-sub">The single thing to consider per fund, sorted so what needs attention is on top. Details for each are in the sections below.</p>
+                <table class="board">
+                    <thead>
+                        <tr><th>Do</th><th>Fund</th><th class="r">Weight</th><th class="r">3Y</th><th>Risk</th><th>Entry now</th><th>Why</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($plan['board'] as $r)
+                            <tr>
+                                <td><span class="board-act act-{{ \Illuminate\Support\Str::slug($r['action']) }}">{{ $r['action'] }}</span></td>
+                                <td class="board-fund">{!! \App\Support\FundLink::to($r['name'], null, $r['code']) !!}
+                                    @if ($r['switch_to'])<span class="board-to">→ {{ \Illuminate\Support\Str::of($r['switch_to'])->after('PUBLIC ') }}</span>@endif
+                                </td>
+                                <td class="r">{{ number_format($r['weight'], 1) }}%</td>
+                                <td class="r {{ ($r['r3'] ?? 0) >= 0 ? 'pos' : 'neg' }}">{{ $r['r3'] !== null ? number_format($r['r3'], 1).'%' : '—' }}</td>
+                                <td>{{ $r['risk'] }}</td>
+                                <td class="{{ $r['entry_good'] === true ? 'pos' : ($r['entry_good'] === false ? 'neg' : '') }}">{{ $r['entry'] ?? '—' }}</td>
+                                <td class="board-why">{{ $r['why'] }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </section>
+        @endif
+
         @php $empty = ! ($plan['trim'] || $plan['switch'] || $plan['deploy'] || $plan['buy']); @endphp
         @if ($empty)
             <p class="adv-none">Nothing flagged — your book is within the concentration cap, has no clearly-beaten holdings, no idle cash, and reasonable spread. ✓</p>
@@ -170,6 +198,17 @@
         .adv-tier { display: inline-block; font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 3px; margin-right: 5px; text-transform: uppercase; letter-spacing: .03em; }
         .tier-steadier { background: #e8f4ee; color: #1a7f5a; } .tier-balanced { background: #eef2fb; color: #2a6fc9; } .tier-growth { background: #fdece9; color: #c0392b; }
         .adv-foot { font-size: 11px; color: #999; margin-top: 18px; line-height: 1.5; }
+        .adv-sub { color: #667; font-size: 12px; margin: 0 0 10px; }
+        .board { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .board th, .board td { padding: 9px 10px; border-bottom: 1px solid #eef0f3; text-align: left; vertical-align: top; }
+        .board thead th { font-size: 11px; text-transform: uppercase; letter-spacing: .03em; color: #99a; font-weight: 600; }
+        .board .r { text-align: right; font-variant-numeric: tabular-nums; }
+        .board-fund { font-weight: 500; white-space: nowrap; }
+        .board-to { display: block; font-size: 11px; color: #2a6fc9; font-weight: 400; margin-top: 2px; }
+        .board-why { color: #555; line-height: 1.45; min-width: 260px; }
+        .board-act { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .03em; color: #fff; padding: 3px 8px; border-radius: 5px; white-space: nowrap; }
+        .act-trim { background: #c0392b; } .act-switch { background: #2a6fc9; } .act-redeem { background: #7d1f13; }
+        .act-top-up { background: #1a7f5a; } .act-deploy { background: #b8860b; } .act-hold { background: #98a0aa; }
         .adv-ai { border: 1px solid #e2e8f2; background: #f7f9fc; border-radius: 10px; padding: 13px 16px; margin: 0 0 20px; }
         .adv-ai-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
         .adv-ai-h { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #667; font-weight: 600; }

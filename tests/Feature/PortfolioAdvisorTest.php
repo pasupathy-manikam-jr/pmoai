@@ -51,6 +51,30 @@ class PortfolioAdvisorTest extends TestCase
         $this->assertStringContainsString('ENHANCED BOND', $bondSug['options'][0]['name']);
     }
 
+    public function test_board_gives_one_call_per_fund(): void
+    {
+        $this->fund('PUBLIC e-WEAK EQUITY', 'PeWEAK', 'EQ', 'High', 5.0);
+        $this->fund('PUBLIC e-STRONG EQUITY', 'PeSTRONG', 'EQ', 'High', 40.0);
+        $this->fund('PRS EQUITY', 'PRS-EQF', 'PRS', 'High', 8.0);
+        $this->fund('PUBLIC e-CASH', 'PeCASH', 'MM', 'Very Low', 3.0);
+        $this->fund('PUBLIC e-CORE', 'PeCORE', 'EQ', 'Moderate', 9.0);
+
+        // Weights kept under the 30% cap so nothing trips concentration.
+        $this->hold('PUBLIC e-CORE', 'PeCORE', 60000);          // filler, keeps others small
+        $this->hold('PUBLIC e-WEAK EQUITY', 'PeWEAK', 20000);   // beaten → SWITCH
+        $this->hold('PRS EQUITY', 'PRS-EQF', 20000);            // locked → HOLD
+        $this->hold('PUBLIC e-CASH', 'PeCASH', 20000);          // idle → DEPLOY
+
+        $board = collect(app(PortfolioAdvisor::class)->analyze()['board'])->keyBy('code');
+
+        $this->assertSame('SWITCH', $board['PEWEAK']['action']);
+        $this->assertSame('HOLD', $board['PRS-EQF']['action']);
+        $this->assertSame('DEPLOY', $board['PECASH']['action']);
+        // action-needed rows sort above HOLD
+        $actions = collect(app(PortfolioAdvisor::class)->analyze()['board'])->pluck('action');
+        $this->assertTrue($actions->search('SWITCH') < $actions->search('HOLD'));
+    }
+
     public function test_prs_funds_are_never_proposed(): void
     {
         $this->fund('PRS EQUITY', 'PRS-EQF', 'PRS', 'High', 8.0);

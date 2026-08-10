@@ -49,6 +49,7 @@ class PortfolioAdvisor
         $heldCodes = array_filter(array_column($held, 'code'));
 
         return [
+            'board'  => $this->board($held, $book, $catalog, $heldCodes),
             'trim'   => $this->trims($held, $book),
             'switch' => $this->switches($held, $catalog, $heldCodes),
             'deploy' => $this->deploys($held, $catalog, $heldCodes),
@@ -109,24 +110,7 @@ class PortfolioAdvisor
             if ($h['fund'] === null || in_array($h['cat'], ['MM', 'PRS'], true) || $h['gold']) {
                 continue;   // cash/PRS/gold handled elsewhere or not switchable
             }
-            $best = null;
-            foreach ($catalog as $c) {
-                if (in_array($c['code'], $heldCodes, true) || $c['cat'] !== $h['cat']) {
-                    continue;
-                }
-                if ($c['is_e'] !== $h['is_e']) {
-                    continue;   // e-Series switches only within e-Series (and vice-versa)
-                }
-                if (self::RISK_W[$c['risk']] > self::RISK_W[$h['risk']]) {
-                    continue;   // don't push into more risk
-                }
-                if ($c['score'] < $h['score'] * self::SWITCH_EDGE) {
-                    continue;   // not enough of an upgrade to bother
-                }
-                if ($best === null || $c['score'] > $best['score']) {
-                    $best = $c;
-                }
-            }
+            $best = $this->bestSwitchFor($h, $catalog, $heldCodes);
             if ($best) {
                 $out[] = [
                     'from'      => $h['name'],
@@ -143,6 +127,91 @@ class PortfolioAdvisor
         }
 
         return $out;
+    }
+
+    /** Best same-category, same-series, ≤-risk, meaningfully-better fund, or null. */
+    private function bestSwitchFor(array $h, array $catalog, array $heldCodes): ?array
+    {
+        if ($h['fund'] === null || in_array($h['cat'], ['MM', 'PRS'], true) || $h['gold']) {
+            return null;
+        }
+        $best = null;
+        foreach ($catalog as $c) {
+            if (in_array($c['code'], $heldCodes, true) || $c['cat'] !== $h['cat']) {
+                continue;
+            }
+            if ($c['is_e'] !== $h['is_e'] || self::RISK_W[$c['risk']] > self::RISK_W[$h['risk']]) {
+                continue;   // e-only-within-e; never push into more risk
+            }
+            if ($c['score'] < $h['score'] * self::SWITCH_EDGE) {
+                continue;   // not enough of an upgrade to bother
+            }
+            if ($best === null || $c['score'] > $best['score']) {
+                $best = $c;
+            }
+        }
+
+        return $best;
+    }
+
+    /**
+     * ONE clear call per held fund — the scannable decision layer.
+     * TOP UP / HOLD / SWITCH / TRIM / REDEEM / DEPLOY, with a timing read and a
+     * plain reason. All from real signals: weight, 3Y return, risk, the fund's
+     * position in its 6-month range, and whether a better same-series fund exists.
+     *
+     * @return array<int, array>  sorted so action-needed rows come first
+     */
+    public function board(array $held, float $book, array $catalog, array $heldCodes): array
+    {
+        // action => sort priority (lower = higher up the list)
+        $priority = ['TRIM' => 0, 'SWITCH' => 1, 'REDEEM' => 2, 'TOP UP' => 3, 'DEPLOY' => 4, 'HOLD' => 5];
+        $rows = [];
+
+        foreach ($held as $h) {
+            $w = $book > 0 ? $h['value'] / $book * 100 : 0;
+            $entry = $this->entrySignal($h['code']);
+            $better = $this->bestSwitchFor($h, $catalog, $heldCodes);
+            $weak = ($h['r3'] !== null && $h['r3'] < 0) && (($entry['good'] ?? null) === false || ($h['trend_5d'] ?? 0) < 0);
+
+            if ($h['cat'] === 'PRS') {
+                [$action, $why] = ['HOLD', 'Retirement money — locked until 55, never traded on market moves.'];
+            } elseif ($h['cat'] === 'MM' || $this->isCashName($h['name'])) {
+                [$action, $why] = ['DEPLOY', 'Idle cash. See the deploy options below to put some to work at a sensible entry.'];
+            } elseif ($w >= self::CONCENTRATION) {
+                [$action, $why] = ['TRIM', "{$this->pc($w)} of your book — one fund shouldn't decide your outcome. "
+                    .(($h['trend_5d'] ?? 0) >= 3 ? "It's rising now, so trim into strength / set a ceiling, not urgent." : 'Bring it toward 25%.')];
+            } elseif ($better) {
+                [$action, $why] = ['SWITCH', "A same-category, same-or-lower-risk fund has done better ({$this->pc($better['r3'])} vs {$this->pc($h['r3'])} over 3Y) — a free same-series switch."];
+            } elseif ($h['gold'] && $weak) {
+                [$action, $why] = ['REDEEM', 'Weak and gold has no switch facility — the only exit is redeeming to cash. Consider it only if you no longer want the gold hedge.'];
+            } elseif ($weak) {
+                [$action, $why] = ['REDEEM', 'Negative over 3 years and still sliding, with no better same-series fund to switch into — taking it to cash stops the bleed.'];
+            } elseif (($entry['good'] ?? null) === true && $w < self::TRIM_TO && ($h['r3'] ?? 0) > 0) {
+                [$action, $why] = ['TOP UP', "Healthy fund, not over-weight ({$this->pc($w)}), and {$entry['label']} — a reasonable spot to add."];
+            } else {
+                [$action, $why] = ['HOLD', 'Nothing to do — reasonable weight, no clearly better option, no red flag right now.'];
+            }
+
+            $rows[] = [
+                'name'     => $h['name'],
+                'code'     => $h['code'],
+                'action'   => $action,
+                'weight'   => round($w, 1),
+                'r3'       => $h['r3'],
+                'risk'     => $h['risk'],
+                'trend_5d' => $h['trend_5d'],
+                'entry'    => $entry['label'] ?? null,
+                'entry_good' => $entry['good'] ?? null,
+                'switch_to' => $better['name'] ?? null,
+                'why'      => $why,
+                '_p'       => $priority[$action] ?? 9,
+            ];
+        }
+
+        usort($rows, fn ($a, $b) => $a['_p'] <=> $b['_p'] ?: $b['weight'] <=> $a['weight']);
+
+        return $rows;
     }
 
     /** Idle cash / money-market money that could be deployed. */

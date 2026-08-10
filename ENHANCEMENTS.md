@@ -200,6 +200,33 @@ The geography work proved the pattern; apply it to the other captured blocks.
 
 ---
 
+## Phase 11 — one clear call per fund (make the advisor act-on-able) 🚧
+
+The advisor screens well but reads as four separate lists. Make it a single,
+scannable decision the user can act on, and widen the actions to TOP-UP and
+REDEEM. Everything stays grounded in captured numbers + real PMO rules.
+
+- 🚧 **Action board** — one row per held fund with a single verdict —
+  **TOP UP / HOLD / SWITCH / TRIM / REDEEM / DEPLOY** — a timing chip, and a
+  one-line reason. Retirement PRS shows HOLD (locked); gold shows REDEEM (no
+  switch facility); cash shows DEPLOY. Sorted so the funds needing action sit on
+  top. This is the "easy to understand at a glance" layer.
+- **TOP-UP** — the inverse of trim: a held fund that is NOT over-weight, in a
+  healthy category, and at a good entry (near a recent low and steadying) → add
+  to it. Uses idle cash or new money; shows the real sales charge.
+- **REDEEM** — take to cash when a held fund is genuinely weak (negative 3Y +
+  still sliding) AND has no better same-series switch (e.g. gold, or a lone
+  non-e fund). Distinct from switch; never for PRS.
+- **Transparent timing score** — a small, explainable 0–100 "conditions now"
+  read per fund from real signals (entry position in its 6-month range, whether
+  it's turning up, weight, risk-adjusted return). No black box, no price
+  forecast — just "favourable / neutral / poor entry", with the factors shown.
+- **Act on it** — each verdict links to the tool that does it: SWITCH/TRIM →
+  the rebalance simulator pre-filled; DEPLOY → the deploy options; and an
+  optional "arm a price trigger" so the move fires when a level is hit.
+
+---
+
 ## Beyond (explicitly NOT core — only if you ask)
 
 These leave strict PMO grounding, so they sit outside the roadmap unless wanted:
