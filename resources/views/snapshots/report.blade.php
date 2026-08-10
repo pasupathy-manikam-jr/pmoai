@@ -36,7 +36,7 @@
                     @php $w = $h['value'] / $tot * 100; $plp = $h['invested'] > 0 ? $h['pl'] / $h['invested'] * 100 : 0; @endphp
                     <tr>
                         <td><span class="rpt-dot" style="background:{{ $palette[$i % count($palette)] }}"></span></td>
-                        <td>{{ $sN($h['name']) }}</td>
+                        <td>{!! \App\Support\FundLink::to($h['name']) !!}</td>
                         <td class="r">{{ number_format($h['invested'], 0) }}</td>
                         <td class="r">{{ number_format($h['value'], 0) }}</td>
                         <td class="r {{ $h['pl'] >= 0 ? 'pos' : 'neg' }}">{{ $h['pl'] >= 0 ? '+' : '−' }}{{ number_format(abs($h['pl']), 0) }}</td>

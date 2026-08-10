@@ -44,6 +44,9 @@ small{color:#666}
     --crimson:#c8102e; --gain:#0e7a46; --loss:#bb2018; --hold:#8a6a00;
     background:var(--paper); color:var(--ink); max-width:none; margin:24px 0; padding:0 24px;
 }
+a.fund-link{color:var(--crimson); text-decoration:none; border-bottom:1px solid transparent;}
+a.fund-link:hover{border-bottom-color:var(--crimson);}
+.fund-abbr{font:600 .68rem/1 'IBM Plex Mono',monospace; color:#9a9a95; letter-spacing:.02em; white-space:nowrap;}
 .page-show .ps-eyebrow{font:600 .68rem/1 'IBM Plex Mono',monospace; letter-spacing:.14em;
     text-transform:uppercase; color:var(--crimson); margin:0 0 14px}
 .page-show .ps-working{color:var(--hold)}

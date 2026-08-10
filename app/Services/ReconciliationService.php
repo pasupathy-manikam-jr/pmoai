@@ -88,8 +88,15 @@ class ReconciliationService
             })(),
         ])->values();
 
-        $holdingsSeen = $held->max('seen');
+        // "Holdings freshness" = when your VALUES were last recorded (the daily
+        // value-history point, written on every capture) — NOT when the fund
+        // detail pages were last scraped. The latter can be weeks old while
+        // your money figures are current, which read as a false alarm.
+        $holdingsSeen = optional(PortfolioSnapshot::orderByDesc('snap_date')->first())->snap_date;
         $holdingsAge  = $holdingsSeen ? (int) $holdingsSeen->diffInDays(now()) : null;
+        // Separate, softer signal: age of the captured fund reference data.
+        $refSeen = $held->max('seen');
+        $refAge  = $refSeen ? (int) $refSeen->diffInDays(now()) : null;
 
         // ---- overall tone -------------------------------------------------
         $tone = 'open'; // ok
@@ -111,6 +118,7 @@ class ReconciliationService
             'holdings_seen'  => $holdingsSeen,
             'holdings_age'   => $holdingsAge,
             'holdings_stale' => $holdingsAge !== null && $holdingsAge > self::HOLDINGS_STALE_DAYS,
+            'ref_age'        => $refAge,
             'stale_prices'   => $stalePrices,
             'held_count'     => $held->count(),
             'tone'           => $tone,

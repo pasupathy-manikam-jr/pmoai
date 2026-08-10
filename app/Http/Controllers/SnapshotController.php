@@ -713,6 +713,37 @@ class SnapshotController extends Controller
      * Rebalance simulator — set a target weight per held fund and get the PMO
      * switches/redemptions to reach it plus the real sales-charge cost.
      */
+    /**
+     * Whole-catalogue advisor — deterministic screener over all ~190 funds,
+     * cross-referenced with your holdings + PMO rules. Informational only.
+     */
+    public function advisor(\App\Services\PortfolioAdvisor $advisor)
+    {
+        $plan = $advisor->analyze();
+        $ai = \Illuminate\Support\Facades\Cache::get(\App\Jobs\AdviseNarrativeJob::KEY);
+
+        return view('snapshots.advisor', compact('plan', 'ai'));
+    }
+
+    /** Queue the plain-English AI summary of the advisor plan (slow provider). */
+    public function adviseExplain()
+    {
+        \Illuminate\Support\Facades\Cache::put(\App\Jobs\AdviseNarrativeJob::KEY,
+            ['status' => 'running', 'at' => now()->toDateTimeString()], now()->addHours(1));
+        \App\Jobs\AdviseNarrativeJob::dispatch();
+        \App\Support\Worker::spawn();
+
+        return redirect()->route('advisor')->withFragment('ai');
+    }
+
+    public function adviseStatus()
+    {
+        $ai = \Illuminate\Support\Facades\Cache::get(\App\Jobs\AdviseNarrativeJob::KEY);
+
+        return response()->json(['status' => $ai['status'] ?? 'none'])
+            ->header('Cache-Control', 'no-store, max-age=0');
+    }
+
     public function rebalance()
     {
         $analysis = app(\App\Services\FundAnalysis::class);

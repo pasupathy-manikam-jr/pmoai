@@ -25,6 +25,9 @@ Route::post('/portfolio/review', [SnapshotController::class, 'portfolioReview'])
 Route::get('/portfolio/review/status', [SnapshotController::class, 'portfolioReviewStatus'])->name('portfolio.reviewStatus');
 Route::get('/simulator', [SnapshotController::class, 'simulator'])->name('simulator');
 Route::get('/rebalance', [SnapshotController::class, 'rebalance'])->name('rebalance');
+Route::get('/advisor', [SnapshotController::class, 'advisor'])->name('advisor');
+Route::post('/advisor/explain', [SnapshotController::class, 'adviseExplain'])->name('advisor.explain');
+Route::get('/advisor/status', [SnapshotController::class, 'adviseStatus'])->name('advisor.status');
 Route::get('/snapshots/{snapshot}/report', [SnapshotController::class, 'report'])->name('snapshots.report');
 
 Route::view('/dashboard', 'dashboard')->name('dashboard');

@@ -102,7 +102,7 @@
                                 —
                             @endif
                         </td>
-                        <td><a href="{{ route('details.show', $h['id']) }}">{{ $h['name'] }}</a></td>
+                        <td><a href="{{ route('details.show', $h['id']) }}" target="_blank" rel="noopener" class="fund-link">{{ $h['name'] }}</a></td>
                         <td class="pt-origin">
                             @if ($h['origin'])
                                 <span title="Funded by switching out of {{ $h['origin'] }}">⇄ from {{ $h['origin'] }}</span>
@@ -352,12 +352,18 @@
                     @endif
                 @endif
                 <tr>
-                    <td>Holdings last captured</td>
+                    <td>Your values last updated</td>
                     <td class="r {{ $rc['holdings_stale'] ? 'neg' : '' }}">
                         {{ $rc['holdings_age'] === null ? '—' : ($rc['holdings_age'] === 0 ? 'today' : $rc['holdings_age'].' day'.($rc['holdings_age'] === 1 ? '' : 's').' ago') }}
                         @if ($rc['holdings_stale']) — getting old @endif
                     </td>
                 </tr>
+                @if ($rc['ref_age'] !== null && $rc['ref_age'] > 21)
+                    <tr>
+                        <td>Fund reference data (factsheets)</td>
+                        <td class="r">{{ $rc['ref_age'] }} days old <span class="stress-worst">— re-capture fund pages to refresh</span></td>
+                    </tr>
+                @endif
                 <tr>
                     <td>Fund prices up to date</td>
                     <td class="r {{ $rc['stale_prices']->isNotEmpty() ? 'neg' : 'pos' }}">
@@ -480,7 +486,7 @@
                 <tr><th>Fund</th><th class="r">Weight</th></tr>
                 @foreach ($conc->take(6) as $c)
                     <tr>
-                        <td>{{ $shortN($c['name']) }}</td>
+                        <td>{!! \App\Support\FundLink::to($c['name']) !!}</td>
                         <td class="r {{ $c['w'] >= 30 ? 'neg' : ($c['w'] >= 25 ? '' : '') }}">{{ number_format($c['w'], 1) }}%@if ($c['w'] >= 30) ⚠@endif</td>
                     </tr>
                 @endforeach

@@ -6,7 +6,7 @@
 @section('content')
     <div class="rb-page">
         <h1>Rebalance simulator</h1>
-        <p class="rb-lead">Set a target weight for each fund. You get the exact Public Mutual switches / redemptions to get there and the <strong>real sales-charge cost</strong>. Same-series fund-to-fund switches are free after 90 days; cross-series, the no-switch gold fund, and cash→equity carry the sales charge.</p>
+        <p class="rb-lead">Type the % you want each fund to be, then <strong>Compute plan</strong>. You get the exact switches to get there and the fee cost. (Same-series switches are free after 90 days; gold, cross-series and cash→equity charge a fee.)</p>
 
         @php $total = $held->sum('value'); @endphp
 
@@ -16,12 +16,12 @@
                 <span class="rb-sumpill">Targets: <b id="rb-tsum">100</b>%</span>
             </div>
             <table class="rb-table">
-                <thead><tr><th>Fund</th><th class="r">Current</th><th class="r">Now</th><th class="r">Target</th></tr></thead>
+                <thead><tr><th>Fund</th><th class="r">RM now</th><th class="r">% now</th><th class="r">% you want</th></tr></thead>
                 <tbody>
                     @foreach ($held as $i => $h)
                         @php $cur = $total > 0 ? $h['value'] / $total * 100 : 0; @endphp
                         <tr>
-                            <td class="rb-fund">{{ \Illuminate\Support\Str::of($h['name'])->after('PUBLIC ') }}<span class="rb-code">{{ $h['code'] }}</span></td>
+                            <td class="rb-fund">{!! \App\Support\FundLink::to($h['name'], null, $h['code'], false) !!}<span class="rb-code">{{ $h['code'] }}</span></td>
                             <td class="r rb-mono">{{ number_format($h['value'], 0) }}</td>
                             <td class="r rb-now">{{ number_format($cur, 1) }}%</td>
                             <td class="r"><span class="rb-inwrap"><input type="number" class="rb-target" data-i="{{ $i }}" value="{{ round($cur) }}" step="1" min="0" max="100">%</span></td>
@@ -34,8 +34,10 @@
             </table>
             <div class="rb-actions">
                 <button id="rb-go" class="rb-btn rb-btn-primary">Compute plan</button>
+                <button id="rb-example" class="rb-btn rb-btn-ghost">Try an example</button>
                 <button id="rb-reset" class="rb-btn rb-btn-ghost">Reset</button>
             </div>
+            <p class="rb-hint" id="rb-hint" hidden></p>
         </div>
 
         <div id="rb-out" hidden class="rb-out"></div>
@@ -48,6 +50,7 @@
         .rb-out table { display: table; }
         .rb-out td, .rb-out th { white-space: nowrap; }
         .rb-lead { color: #666; font-size: 13px; line-height: 1.5; margin: 0 0 16px; }
+        .rb-hint { font-size: 12px; color: #555; background: #f4f7fb; border: 1px solid #e2e8f2; border-radius: 6px; padding: 7px 10px; margin: 10px 0 0; }
         .rb-card { border: 1px solid #e5e5e5; border-radius: 10px; background: #fff; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
         .rb-card-top { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #fafafa; border-bottom: 1px solid #eee; }
         .rb-eyebrow { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: .04em; }
@@ -126,7 +129,28 @@
         document.getElementById('rb-reset').onclick = function () {
             inputs.forEach(function (i) { i.value = Math.round(HELD[+i.dataset.i].value / TOTAL * 100); });
             refreshSum();
+            document.getElementById('rb-hint').hidden = true;
             document.getElementById('rb-out').hidden = true;
+        };
+
+        // Worked example: trim your biggest fund by 8% into your smallest, then
+        // compute — so you can see what a plan + its fee actually look like.
+        document.getElementById('rb-example').onclick = function () {
+            inputs.forEach(function (i) { i.value = Math.round(HELD[+i.dataset.i].value / TOTAL * 100); });
+            var big = 0, small = 0;
+            HELD.forEach(function (h, i) {
+                if (h.value > HELD[big].value) big = i;
+                if (h.value < HELD[small].value) small = i;
+            });
+            var move = Math.min(8, parseFloat(inputs[big].value) || 0);
+            inputs[big].value = (parseFloat(inputs[big].value) || 0) - move;
+            inputs[small].value = (parseFloat(inputs[small].value) || 0) + move;
+            refreshSum();
+            var hint = document.getElementById('rb-hint');
+            hint.innerHTML = 'Example: move ' + move + '% out of <b>' + shortN(HELD[big].name)
+                + '</b> into <b>' + shortN(HELD[small].name) + '</b>. Edit any number, or Compute plan again.';
+            hint.hidden = false;
+            document.getElementById('rb-go').click();
         };
 
         document.getElementById('rb-go').onclick = function () {
@@ -173,7 +197,7 @@
                 });
                 html += '</tbody><tfoot><tr class="rb-total"><th colspan="2">Total sales charge to rebalance</th><th class="r"></th>'
                     + '<th class="r ' + (totalCost > 0 ? 'neg' : 'pos') + '">' + (totalCost > 0 ? fmt(totalCost) : 'RM 0') + '</th></tr></tfoot></table>';
-                html += '<p class="rb-note">' + fmt(totalCost) + ' = ' + (totalCost / TOTAL * 100).toFixed(2) + '% of the portfolio, paid once to reach your target. Same-series switches cost nothing; the charge is from cross-series moves, gold redemptions and cash→equity.</p>';
+                html += '<p class="rb-note">' + fmt(totalCost) + ' = ' + (totalCost / TOTAL * 100).toFixed(2) + '% of your book, paid once. Same-series switches are free.</p>';
             }
             if (leftSell > 1) html += '<p class="rb-note">↩ ' + fmt(leftSell) + ' of sells has no matching buy → it ends up as cash.</p>';
             if (leftBuy > 1) html += '<p class="rb-note">➕ ' + fmt(leftBuy) + ' of buys has no matching sell → needs new money (fresh sales charge applies).</p>';
