@@ -44,4 +44,9 @@ return [
 
     'openai_key' => env('OPENAI_API_KEY'),
     'openai_url' => 'https://api.openai.com/v1/embeddings',
+
+    // Your Public Mutual online account, where switches/redemptions are actually
+    // done. This app only PLANS moves — it can't transact. Set the exact
+    // i-Access / online-investment URL in .env; defaults to the public site.
+    'pmo_portal_url' => env('PMO_PORTAL_URL', 'https://www.publicmutual.com.my'),
 ];

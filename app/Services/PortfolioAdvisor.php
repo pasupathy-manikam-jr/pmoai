@@ -129,6 +129,41 @@ class PortfolioAdvisor
         return $out;
     }
 
+    /**
+     * Transparent "conditions to add now" score, 0–100, from real signals — NOT
+     * a price forecast. Combines: where the price sits in its 6-month range
+     * (near a low is a better entry), whether it's turning up, and whether the
+     * fund is any good (positive 3-year return). Returns the score, a band, and
+     * the human-readable factors behind it. Null if no price history.
+     *
+     * @return array{score:int, band:string, factors:array<int,string>}|null
+     */
+    private function timingScore(?array $entry, ?float $r3): ?array
+    {
+        if ($entry === null) {
+            return null;
+        }
+        $pos = $entry['pos'];        // 0 = at low, 100 = at high
+        $trend = $entry['trend'] ?? 0;
+        $factors = [];
+
+        $s = 50.0;
+        // Entry position: lower in the range = better place to add.
+        $s += (50 - $pos) * 0.4;     // ±20
+        $factors[] = $pos <= 33 ? 'near its recent low (+)' : ($pos >= 67 ? 'near its recent high (−)' : 'mid-range');
+        // Momentum: turning up is good; still sliding is bad.
+        if ($trend > 0) { $s += 12; $factors[] = 'turning up (+)'; }
+        elseif ($trend < -1) { $s -= 10; $factors[] = 'still sliding (−)'; }
+        // Quality: don't reward a fund that's cheap because it's weak.
+        if ($r3 !== null && $r3 > 0) { $s += 10; $factors[] = 'positive 3-year return (+)'; }
+        elseif ($r3 !== null && $r3 < 0) { $s -= 12; $factors[] = 'negative 3-year return (−)'; }
+
+        $score = (int) round(max(0, min(100, $s)));
+        $band = $score >= 65 ? 'favourable' : ($score >= 40 ? 'neutral' : 'poor');
+
+        return ['score' => $score, 'band' => $band, 'factors' => $factors];
+    }
+
     /** Best same-category, same-series, ≤-risk, meaningfully-better fund, or null. */
     private function bestSwitchFor(array $h, array $catalog, array $heldCodes): ?array
     {
@@ -193,6 +228,8 @@ class PortfolioAdvisor
                 [$action, $why] = ['HOLD', 'Nothing to do — reasonable weight, no clearly better option, no red flag right now.'];
             }
 
+            $timing = $this->timingScore($entry, $h['r3']);
+
             $rows[] = [
                 'name'     => $h['name'],
                 'code'     => $h['code'],
@@ -203,6 +240,9 @@ class PortfolioAdvisor
                 'trend_5d' => $h['trend_5d'],
                 'entry'    => $entry['label'] ?? null,
                 'entry_good' => $entry['good'] ?? null,
+                'score'    => $timing['score'] ?? null,
+                'band'     => $timing['band'] ?? null,
+                'factors'  => $timing['factors'] ?? [],
                 'switch_to' => $better['name'] ?? null,
                 'why'      => $why,
                 '_p'       => $priority[$action] ?? 9,

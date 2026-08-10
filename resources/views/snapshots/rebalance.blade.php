@@ -205,6 +205,28 @@
             out.innerHTML = html;
             out.hidden = false;
         };
+
+        // Pre-fill from the Advisor "See plan" link: ?trim=CODE (→25%) or
+        // ?redeem=CODE (→0%). Sets that fund's target, computes immediately.
+        (function () {
+            var q = new URLSearchParams(location.search);
+            var trim = q.get('trim'), redeem = q.get('redeem');
+            var code = (trim || redeem || '').toUpperCase();
+            if (!code) return;
+            var idx = HELD.findIndex(function (h) { return (h.code || '').toUpperCase() === code; });
+            if (idx < 0) return;
+            var pct = trim ? 25 : 0;
+            var inp = inputs.find(function (i) { return +i.dataset.i === idx; });
+            if (!inp) return;
+            inp.value = pct;
+            refreshSum();
+            var hint = document.getElementById('rb-hint');
+            hint.innerHTML = 'From Advisor: <b>' + shortN(HELD[idx].name) + '</b> set to ' + pct + '%'
+                + (trim ? ' (trim to target).' : ' (redeem to cash).') + ' Adjust any number, or Compute again.';
+            hint.hidden = false;
+            document.getElementById('rb-go').click();
+            inp.scrollIntoView({ block: 'center' });
+        })();
     })();
     </script>
 @endsection

@@ -53,10 +53,10 @@
         @if (! empty($plan['board']))
             <section class="adv-grp">
                 <h2>Your funds — one call each</h2>
-                <p class="adv-sub">The single thing to consider per fund, sorted so what needs attention is on top. Details for each are in the sections below.</p>
+                <p class="adv-sub">The single thing to consider per fund, sorted so what needs attention is on top. <b>This app only plans</b> — "Plan" sets the move up here; you place the actual switch/redeem/top-up in your Public Mutual account.</p>
                 <table class="board">
                     <thead>
-                        <tr><th>Do</th><th>Fund</th><th class="r">Weight</th><th class="r">3Y</th><th>Risk</th><th>Entry now</th><th>Why</th></tr>
+                        <tr><th>Do</th><th>Fund</th><th class="r">Weight</th><th class="r">3Y</th><th>Risk</th><th>Timing now</th><th>Why</th><th>Act</th></tr>
                     </thead>
                     <tbody>
                         @foreach ($plan['board'] as $r)
@@ -68,8 +68,33 @@
                                 <td class="r">{{ number_format($r['weight'], 1) }}%</td>
                                 <td class="r {{ ($r['r3'] ?? 0) >= 0 ? 'pos' : 'neg' }}">{{ $r['r3'] !== null ? number_format($r['r3'], 1).'%' : '—' }}</td>
                                 <td>{{ $r['risk'] }}</td>
-                                <td class="{{ $r['entry_good'] === true ? 'pos' : ($r['entry_good'] === false ? 'neg' : '') }}">{{ $r['entry'] ?? '—' }}</td>
+                                <td>
+                                    @if ($r['score'] !== null)
+                                        <span class="board-score sc-{{ $r['band'] }}" title="{{ $r['entry'] }} · {{ implode(', ', $r['factors']) }}">{{ $r['score'] }} · {{ $r['band'] }}</span>
+                                    @else
+                                        <span class="board-score sc-none">—</span>
+                                    @endif
+                                </td>
                                 <td class="board-why">{{ $r['why'] }}</td>
+                                <td class="board-act-cell">
+                                    @php
+                                        $slug = \Illuminate\Support\Str::slug($r['name']);
+                                        $planHref = match ($r['action']) {
+                                            'TRIM'   => route('rebalance', ['trim' => $r['code']]),
+                                            'REDEEM' => route('rebalance', ['redeem' => $r['code']]),
+                                            'SWITCH' => '#switch-'.$slug,
+                                            'DEPLOY' => '#deploy-'.$slug,
+                                            'TOP UP' => '#deploy',
+                                            default  => null,
+                                        };
+                                        $ext = $planHref && \Illuminate\Support\Str::startsWith($planHref, 'http');
+                                    @endphp
+                                    @if ($planHref)
+                                        <a href="{{ $planHref }}" @if ($ext) target="_blank" rel="noopener" @endif class="board-plan">{{ $ext ? 'Plan it ↗' : 'See plan ↓' }}</a>
+                                    @else
+                                        <span class="board-na">—</span>
+                                    @endif
+                                </td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -87,7 +112,7 @@
             <section class="adv-grp">
                 <h2><span class="adv-tag t-trim">TRIM</span> Reduce a fund that's too big</h2>
                 @foreach ($plan['trim'] as $t)
-                    <div class="adv-card">
+                    <div class="adv-card" id="trim-{{ \Illuminate\Support\Str::slug($t['fund']) }}">
                         <div class="adv-head">{!! \App\Support\FundLink::to($t['fund']) !!}
                             <span class="adv-badge">{{ $t['weight'] }}% · {{ $t['risk'] }} risk</span>
                             @if ($t['trend_5d'] !== null)<span class="adv-badge {{ $t['trend_5d'] >= 0 ? 'pos' : 'neg' }}">{{ $t['trend_5d'] >= 0 ? '▲ +' : '▼ ' }}{{ $t['trend_5d'] }}% this week</span>@endif
@@ -106,7 +131,7 @@
             <section class="adv-grp">
                 <h2><span class="adv-tag t-switch">SWITCH</span> A better fund in the same category</h2>
                 @foreach ($plan['switch'] as $s)
-                    <div class="adv-card">
+                    <div class="adv-card" id="switch-{{ \Illuminate\Support\Str::slug($s['from']) }}">
                         <div class="adv-head">{!! \App\Support\FundLink::to($s['from']) !!} → {!! \App\Support\FundLink::to($s['to']) !!}</div>
                         <table class="adv-cmp">
                             <tr><th></th><th>Now</th><th>Suggested</th></tr>
@@ -123,10 +148,10 @@
 
         {{-- DEPLOY ------------------------------------------------------ --}}
         @if ($plan['deploy'])
-            <section class="adv-grp">
+            <section class="adv-grp" id="deploy">
                 <h2><span class="adv-tag t-deploy">DEPLOY</span> Put idle cash to work</h2>
                 @foreach ($plan['deploy'] as $d)
-                    <div class="adv-card">
+                    <div class="adv-card" id="deploy-{{ \Illuminate\Support\Str::slug($d['from']) }}">
                         <div class="adv-head">{!! \App\Support\FundLink::to($d['from']) !!} <span class="adv-badge">RM {{ number_format($d['amount'], 0) }} idle</span></div>
                         <p class="adv-why">{{ $d['why'] }}</p>
                         <table class="adv-opts">
@@ -182,7 +207,9 @@
         .adv-grp h2 { font-size: 16px; display: flex; align-items: center; gap: 9px; margin: 0 0 10px; }
         .adv-tag { font-size: 10px; font-weight: 700; color: #fff; padding: 3px 7px; border-radius: 4px; letter-spacing: .03em; }
         .t-trim { background: #c0392b; } .t-switch { background: #2a6fc9; } .t-deploy { background: #8a6a00; } .t-buy { background: #1a7f5a; }
-        .adv-card { border: 1px solid #e5e5e5; border-radius: 10px; padding: 14px 16px; margin: 0 0 12px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+        html { scroll-behavior: smooth; }
+        .adv-card { border: 1px solid #e5e5e5; border-radius: 10px; padding: 14px 16px; margin: 0 0 12px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.04); scroll-margin-top: 16px; transition: box-shadow .3s, border-color .3s; }
+        .adv-card:target { border-color: #2a6fc9; box-shadow: 0 0 0 3px rgba(42,111,201,.18); }
         .adv-head { font-weight: 600; font-size: 14px; margin-bottom: 6px; }
         .adv-badge { font-size: 11px; font-weight: 500; color: #888; margin-left: 6px; }
         .adv-badge.pos { color: #1a7f5a; } .adv-badge.neg { color: #c0392b; }
@@ -209,6 +236,12 @@
         .board-act { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .03em; color: #fff; padding: 3px 8px; border-radius: 5px; white-space: nowrap; }
         .act-trim { background: #c0392b; } .act-switch { background: #2a6fc9; } .act-redeem { background: #7d1f13; }
         .act-top-up { background: #1a7f5a; } .act-deploy { background: #b8860b; } .act-hold { background: #98a0aa; }
+        .board-score { display: inline-block; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 5px; white-space: nowrap; cursor: help; }
+        .sc-favourable { background: #e8f4ee; color: #1a7f5a; } .sc-neutral { background: #f2f4f7; color: #667; } .sc-poor { background: #fdece9; color: #c0392b; } .sc-none { background: transparent; color: #bbb; cursor: default; }
+        .board-act-cell { white-space: nowrap; }
+        .board-plan { font-size: 11px; text-decoration: none; padding: 3px 7px; border-radius: 5px; border: 1px solid #cdddf5; color: #2a6fc9; }
+        .board-plan:hover { background: #2a6fc9; color: #fff; }
+        .board-na { color: #ccc; }
         .adv-ai { border: 1px solid #e2e8f2; background: #f7f9fc; border-radius: 10px; padding: 13px 16px; margin: 0 0 20px; }
         .adv-ai-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
         .adv-ai-h { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #667; font-weight: 600; }
