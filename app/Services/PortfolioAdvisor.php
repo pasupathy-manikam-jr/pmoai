@@ -316,12 +316,34 @@ class PortfolioAdvisor
                     ];
                 }
             }
+            // "Not at a high" ranking: every same-series, decent-return option
+            // sorted by where it sits in its 6-month range (lowest first = best
+            // entry). Lets you deploy into what has NOT already run up.
+            $byEntry = [];
+            foreach ($cands as $c) {
+                if (($c['r3'] ?? 0) <= 3) {
+                    continue;   // skip weak funds — cheap-because-bad isn't an entry
+                }
+                $e = $this->entrySignal($c['code']);
+                if ($e === null) {
+                    continue;
+                }
+                $byEntry[] = [
+                    'name' => $c['name'], 'cat' => self::CAT_LABEL[$c['cat']] ?? $c['cat'],
+                    'risk' => $c['risk'], 'r3' => $c['r3'], 'pos' => $e['pos'],
+                    'good' => $e['good'], 'fee_pct' => $this->salesCharge($c),
+                ];
+            }
+            usort($byEntry, fn ($a, $b) => $a['pos'] <=> $b['pos']);
+            $byEntry = array_slice($byEntry, 0, 7);
+
             if ($options) {
                 $out[] = [
-                    'from'    => $h['name'],
-                    'amount'  => round($h['value']),
-                    'options' => $options,
-                    'why'     => 'This is cash sitting idle. Two things matter, not just the return: (1) how much risk you want — the options span steadier to higher-risk; (2) timing — putting a lump sum into a fund near its high is a poor entry, so where a fund has pulled back and is steadying is better, and if it’s near a high, feed the money in gradually instead of all at once. Cash→fund pays a fresh sales charge; keeping some as your buffer is fine.',
+                    'from'     => $h['name'],
+                    'amount'   => round($h['value']),
+                    'options'  => $options,
+                    'by_entry' => $byEntry,
+                    'why'      => 'This is cash sitting idle. Two things matter, not just the return: (1) how much risk you want — the options span steadier to higher-risk; (2) timing — putting a lump sum into a fund near its high is a poor entry, so where a fund has pulled back and is steadying is better, and if it’s near a high, feed the money in gradually instead of all at once. Cash→fund pays a fresh sales charge; keeping some as your buffer is fine.',
                 ];
             }
         }

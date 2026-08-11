@@ -227,6 +227,24 @@
                                 </tr>
                             @endforeach
                         </table>
+
+                        @if (! empty($d['by_entry']))
+                            <p class="adv-subh">Not at a high — same-series options, best entry first</p>
+                            <table class="adv-opts">
+                                <tr><th>Fund</th><th class="r">In its 6-mo range</th><th class="r">Type</th><th class="r">Risk</th><th class="r">3Y</th><th class="r">Sales charge</th></tr>
+                                @foreach ($d['by_entry'] as $o)
+                                    <tr>
+                                        <td>{!! \App\Support\FundLink::to($o['name']) !!}</td>
+                                        <td class="r"><span class="{{ $o['pos'] <= 33 ? 'pos' : ($o['pos'] >= 67 ? 'neg' : '') }}">{{ $o['pos'] }}% {{ $o['pos'] <= 33 ? '(near low)' : ($o['pos'] >= 67 ? '(near high)' : '') }}</span></td>
+                                        <td class="r">{{ $o['cat'] }}</td>
+                                        <td class="r">{{ $o['risk'] }}</td>
+                                        <td class="r">{{ $o['r3'] !== null ? number_format($o['r3'], 1).'%' : '—' }}</td>
+                                        <td class="r neg">{{ $o['fee_pct'] }}%</td>
+                                    </tr>
+                                @endforeach
+                            </table>
+                            <small class="ps-sub" style="color:#888">0% = at its recent low (better entry) · 100% = at its recent high. Only decent performers shown (weak funds that are merely cheap are excluded). Spread a lump sum in over time rather than all at once.</small>
+                        @endif
                     </div>
                 @endforeach
             </section>
@@ -287,6 +305,7 @@
         .tier-steadier { background: #e8f4ee; color: #1a7f5a; } .tier-balanced { background: #eef2fb; color: #2a6fc9; } .tier-growth { background: #fdece9; color: #c0392b; }
         .adv-foot { font-size: 11px; color: #999; margin-top: 18px; line-height: 1.5; }
         .adv-sub { color: #667; font-size: 12px; margin: 0 0 10px; }
+        .adv-subh { font-size: 12px; font-weight: 700; color: #1a7f5a; margin: 14px 0 4px; }
         .board { width: 100%; border-collapse: collapse; font-size: 13px; }
         .board th, .board td { padding: 9px 10px; border-bottom: 1px solid #eef0f3; text-align: left; vertical-align: top; }
         .board thead th { font-size: 11px; text-transform: uppercase; letter-spacing: .03em; color: #99a; font-weight: 600; }
