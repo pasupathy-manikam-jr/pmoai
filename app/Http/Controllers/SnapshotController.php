@@ -724,8 +724,9 @@ class SnapshotController extends Controller
         // Armed price triggers, grouped by fund, to show/allow-remove per row.
         $alerts = \App\Models\Alert::where('active', true)->whereNull('fired_at')
             ->get()->groupBy(fn ($a) => strtoupper($a->fund_code));
+        $chat = \Illuminate\Support\Facades\Cache::get(\App\Jobs\AdviseChatJob::KEY, ['status' => 'idle', 'messages' => []]);
 
-        return view('snapshots.advisor', compact('plan', 'ai', 'alerts'));
+        return view('snapshots.advisor', compact('plan', 'ai', 'alerts', 'chat'));
     }
 
     /** Arm a price trigger from the advisor (act at a better moment). */
@@ -771,6 +772,55 @@ class SnapshotController extends Controller
 
         return response()->json(['status' => $ai['status'] ?? 'none'])
             ->header('Cache-Control', 'no-store, max-age=0');
+    }
+
+    /** One chat turn about the advisor plan (queue + poll). */
+    public function adviseChat(Request $request)
+    {
+        $data = $request->validate(['message' => ['required', 'string', 'max:2000']]);
+
+        $state = \Illuminate\Support\Facades\Cache::get(\App\Jobs\AdviseChatJob::KEY, ['messages' => []]);
+        $messages = $state['messages'] ?? [];
+        $messages[] = ['role' => 'user', 'text' => $data['message'], 'at' => now()->toDateTimeString()];
+        \Illuminate\Support\Facades\Cache::put(\App\Jobs\AdviseChatJob::KEY,
+            ['status' => 'running', 'messages' => array_slice($messages, -20)], now()->addHours(12));
+
+        \App\Jobs\AdviseChatJob::dispatch();
+        \App\Support\Worker::spawn();
+
+        return redirect()->route('advisor')->withFragment('ai-chat');
+    }
+
+    public function adviseChatStatus()
+    {
+        $s = \Illuminate\Support\Facades\Cache::get(\App\Jobs\AdviseChatJob::KEY);
+
+        return response()->json(['status' => $s['status'] ?? 'idle'])
+            ->header('Cache-Control', 'no-store, max-age=0');
+    }
+
+    /** Delete one advisor-chat message by index. */
+    public function adviseChatDelete(Request $request)
+    {
+        $data = $request->validate(['i' => ['required', 'integer', 'min:0']]);
+
+        $state = \Illuminate\Support\Facades\Cache::get(\App\Jobs\AdviseChatJob::KEY, ['messages' => []]);
+        $messages = $state['messages'] ?? [];
+        if (array_key_exists($data['i'], $messages)) {
+            array_splice($messages, $data['i'], 1);
+            \Illuminate\Support\Facades\Cache::put(\App\Jobs\AdviseChatJob::KEY,
+                ['status' => 'idle', 'messages' => $messages], now()->addHours(12));
+        }
+
+        return back()->withFragment('ai-chat');
+    }
+
+    /** Clear the whole advisor-chat conversation. */
+    public function adviseChatClear()
+    {
+        \Illuminate\Support\Facades\Cache::forget(\App\Jobs\AdviseChatJob::KEY);
+
+        return back()->withFragment('ai-chat');
     }
 
     public function rebalance()

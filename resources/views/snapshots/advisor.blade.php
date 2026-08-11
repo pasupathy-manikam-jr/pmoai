@@ -11,7 +11,7 @@
 
         <div id="ai" class="adv-ai">
             <div class="adv-ai-top">
-                <span class="adv-ai-h">Plain-English summary</span>
+                <span class="adv-ai-h">AI read on your funds</span>
                 <form method="POST" action="{{ route('advisor.explain') }}">
                     @csrf
                     <button type="submit" class="adv-ai-btn">{{ ! empty($ai['text']) ? '↻ Regenerate' : '✨ Explain with AI' }}</button>
@@ -47,6 +47,44 @@
             @else
                 <p class="adv-ai-empty">The suggestions below are already explained line by line. Want it tied together in one short paragraph? Click <b>Explain with AI</b> — it only rewords the figures above, never invents.</p>
             @endif
+
+            {{-- Interactive follow-up chat about the plan --}}
+            <div id="ai-chat" class="adv-chat">
+                <div class="adv-ai-top">
+                    <span class="adv-ai-h">Ask a follow-up</span>
+                    @if (! empty($chat['messages']))
+                        <form method="POST" action="{{ route('advisor.chat.clear') }}" data-confirm="Clear the whole conversation?" data-confirm-yes="Clear">
+                            @csrf
+                            <button type="submit" class="ac-clear">Clear chat</button>
+                        </form>
+                    @endif
+                </div>
+                @if (! empty($chat['messages']))
+                    <div class="adv-chat-log">
+                        @foreach ($chat['messages'] as $i => $m)
+                            <div class="ac-row ac-row-{{ $m['role'] }}">
+                                <div class="ac-msg ac-{{ $m['role'] }}">{{ $m['text'] }}</div>
+                                <form method="POST" action="{{ route('advisor.chat.delete') }}" class="ac-del" data-confirm="Delete this message?" data-confirm-yes="Delete">
+                                    @csrf
+                                    <input type="hidden" name="i" value="{{ $i }}">
+                                    <button type="submit" title="Delete">✕</button>
+                                </form>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+                @if (($chat['status'] ?? 'idle') === 'running')
+                    <p class="adv-ai-run" id="adv-chat-run">Thinking… 30s–2 min. This updates itself.</p>
+                @else
+                    <form method="POST" action="{{ route('advisor.chat') }}" class="adv-chat-form">
+                        @csrf
+                        <input type="text" name="message" maxlength="2000" required autocomplete="off"
+                               placeholder="e.g. Why switch Indonesia? Is now a bad time to trim e-AI? What's safest for the cash?">
+                        <button type="submit" class="adv-ai-btn">Ask</button>
+                    </form>
+                    <p class="adv-ai-empty">Answers use only the figures above — grounded, not a forecast, not licensed advice.</p>
+                @endif
+            </div>
         </div>
 
         {{-- ACTION BOARD — one clear call per held fund ---------------- --}}
@@ -289,13 +327,29 @@
         .adv-ai-list .adv-num { color: #c0392b; font-weight: 600; font-variant-numeric: tabular-nums; }
         .adv-ai-list li.adv-ai-note { color: #8a8f98; font-size: 12px; font-style: italic; }
         .adv-ai-src { font-size: 11px; color: #aab; margin: 6px 0 0; }
+        .adv-chat { margin-top: 14px; padding-top: 12px; border-top: 1px solid #e2e8f2; }
+        .adv-chat-log { display: flex; flex-direction: column; gap: 8px; margin: 8px 0 10px; }
+        .ac-row { display: flex; align-items: center; gap: 6px; }
+        .ac-row-user { justify-content: flex-end; }
+        .ac-row-assistant { justify-content: flex-start; flex-direction: row-reverse; }
+        .ac-msg { max-width: 80%; padding: 8px 12px; border-radius: 10px; font-size: 13px; line-height: 1.5; }
+        .ac-user { background: #16181d; color: #f5f5f2; border-bottom-right-radius: 3px; }
+        .ac-assistant { background: #fff; border: 1px solid #e2e8f2; white-space: pre-wrap; }
+        .ac-del { margin: 0; } .ac-del button { border: 1px solid #e6e4de; background: #fbfbf9; color: #aaa; cursor: pointer; font-size: 11px; padding: 2px 6px; border-radius: 5px; }
+        .ac-del button:hover { background: #c0392b; color: #fff; border-color: #c0392b; }
+        .ac-clear { border: 1px solid #ddd; background: #fff; color: #888; font-size: 11px; padding: 3px 9px; border-radius: 5px; cursor: pointer; }
+        .ac-clear:hover { border-color: #c0392b; color: #c0392b; }
+        .adv-chat-form { display: flex; gap: 8px; margin-top: 6px; }
+        .adv-chat-form input { flex: 1; box-sizing: border-box; padding: 9px 12px; font: inherit; font-size: 13px; border: 1px solid #d5dbe6; border-radius: 8px; }
+        .adv-chat-form input:focus { outline: 2px solid #2a6fc9; outline-offset: 1px; border-color: #2a6fc9; }
     </style>
 
-    @if (($ai['status'] ?? null) === 'running')
+    @php $pollUrl = ($ai['status'] ?? null) === 'running' ? route('advisor.status') : ((($chat['status'] ?? null) === 'running') ? route('advisor.chat.status') : null); @endphp
+    @if ($pollUrl)
         <script>
         (function () {
             function poll() {
-                fetch('{{ route('advisor.status') }}', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                fetch('{{ $pollUrl }}', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
                     .then(function (r) { return r.json(); })
                     .then(function (j) { if (j.status !== 'running') location.reload(); else setTimeout(poll, 5000); })
                     .catch(function () { setTimeout(poll, 8000); });

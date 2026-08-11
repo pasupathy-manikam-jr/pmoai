@@ -30,6 +30,10 @@ Route::post('/alerts', [SnapshotController::class, 'storeAlert'])->name('alerts.
 Route::post('/alerts/{alert}/delete', [SnapshotController::class, 'deleteAlert'])->name('alerts.delete');
 Route::post('/advisor/explain', [SnapshotController::class, 'adviseExplain'])->name('advisor.explain');
 Route::get('/advisor/status', [SnapshotController::class, 'adviseStatus'])->name('advisor.status');
+Route::post('/advisor/chat', [SnapshotController::class, 'adviseChat'])->name('advisor.chat');
+Route::get('/advisor/chat/status', [SnapshotController::class, 'adviseChatStatus'])->name('advisor.chat.status');
+Route::post('/advisor/chat/delete', [SnapshotController::class, 'adviseChatDelete'])->name('advisor.chat.delete');
+Route::post('/advisor/chat/clear', [SnapshotController::class, 'adviseChatClear'])->name('advisor.chat.clear');
 Route::get('/snapshots/{snapshot}/report', [SnapshotController::class, 'report'])->name('snapshots.report');
 
 Route::view('/dashboard', 'dashboard')->name('dashboard');
