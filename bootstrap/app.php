@@ -12,7 +12,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         // Userscript ingest is token-protected, not session/CSRF based.
-        $middleware->preventRequestForgery(except: ['ingest', 'ingest-detail', 'ingest-mfr', 'ingest-holdings', 'ingest-page']);
+        $middleware->preventRequestForgery(except: ['ingest', 'ingest-detail', 'ingest-mfr', 'ingest-holdings', 'ingest-page', 'ingest-top']);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

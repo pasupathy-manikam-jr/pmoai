@@ -359,11 +359,19 @@ class SnapshotController extends Controller
         $expoHistory = \App\Models\PortfolioSnapshot::whereNotNull('exposure')
             ->orderBy('snap_date')->get(['snap_date', 'exposure']);
 
+        // PMO's captured "top performer" cards + which of them you already hold.
+        $featured = \App\Models\FeaturedFund::orderBy('rank')->get();
+        $heldCodeSet = FundDetail::whereRaw("payload->'position'->>'current_value' is not null")
+            ->whereNotNull('code')->pluck('code')->map(fn ($c) => strtoupper($c))->flip();
+        $detailIdByCode = FundDetail::whereNotNull('code')->pluck('id', 'code')
+            ->mapWithKeys(fn ($id, $c) => [strtoupper($c) => $id]);
+
         return view('snapshots.show', compact(
             'snapshot', 'funds', 'detailMap', 'detailByCode', 'ideas', 'portfolio',
             'alerts', 'history', 'review', 'past', 'prsThisYear', 'prsXirr',
             'transactions', 'pending', 'backtest', 'attribution', 'reconcile',
             'prsHistory', 'prsTotals', 'expoHistory',
+            'featured', 'heldCodeSet', 'detailIdByCode',
         ));
     }
 
@@ -821,6 +829,49 @@ class SnapshotController extends Controller
         \Illuminate\Support\Facades\Cache::forget(\App\Jobs\AdviseChatJob::KEY);
 
         return back()->withFragment('ai-chat');
+    }
+
+    /**
+     * Token-protected ingest for the PMO dashboard "top performer" cards
+     * (userscript). Replace-all: each capture is the current snapshot of what
+     * Public Mutual is promoting. Best-effort code match to the catalog.
+     * Body: { token, as_at?, items: [{name, value, rank?}] }
+     */
+    public function ingestTop(Request $request)
+    {
+        $token = config('ai.ingest_token');
+        $given = $request->header('X-PMOAI-TOKEN') ?: $request->input('token');
+        if (! $token || ! is_string($given) || ! hash_equals($token, $given)) {
+            return response()->json(['error' => 'unauthorized'], 401);
+        }
+
+        $data = $request->validate([
+            'as_at'         => ['nullable', 'string', 'max:40'],
+            'metric'        => ['nullable', 'string', 'max:80'],
+            'items'         => ['required', 'array', 'min:1'],
+            'items.*.name'  => ['required', 'string', 'max:255'],
+            'items.*.value' => ['nullable', 'numeric'],
+            'items.*.rank'  => ['nullable', 'integer'],
+        ]);
+
+        // Resolve each name to a catalog code (for held-badge + entry lookups).
+        $catalog = Fund::whereNotNull('code')->get(['code', 'name']);
+        $byNorm = $catalog->keyBy(fn ($f) => FundDetail::normalizeName($f->name));
+
+        \App\Models\FeaturedFund::truncate();
+        foreach ($data['items'] as $i => $it) {
+            $norm = FundDetail::normalizeName($it['name']);
+            \App\Models\FeaturedFund::create([
+                'name'   => $it['name'],
+                'code'   => optional($byNorm->get($norm))->code,
+                'metric' => $data['metric'] ?? '3-Year Annualised Return',
+                'value'  => $it['value'] ?? null,
+                'as_at'  => $data['as_at'] ?? null,
+                'rank'   => $it['rank'] ?? $i,
+            ]);
+        }
+
+        return response()->json(['ok' => true, 'stored' => count($data['items'])]);
     }
 
     public function rebalance()

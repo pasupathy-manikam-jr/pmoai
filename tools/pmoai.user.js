@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         pmoai — Public Mutual capture
 // @namespace    pmoai
-// @version      1.16
+// @version      1.17
 // @description  Scrape Public Mutual Prices/Performance/Info tables and send to the pmoai app. Read-only, your machine only.
 // @match        https://www.publicmutualonline.com.my/*
 // @match        https://publicmutualonline.com.my/*
@@ -25,7 +25,7 @@
   - Type goals, click "Send to pmoai" → it POSTs and links the result.
 */
 
-const TOKEN    = 'PASTE_PMOAI_INGEST_TOKEN_HERE';
+const TOKEN    = '71080729147dc13fcb1c833d9206ed3bc6ed0bde61c7ee12';
 const API_BASE = 'https://pmoai.local:8890';   // if SSL cert error, try the MAMP http port
 
 // --- table extractor (same logic as the console snippet) -------------------
@@ -244,6 +244,48 @@ function extractHoldingsText(num, docs) {
 }
 
 // --- floating panel --------------------------------------------------------
+// --- top-performer cards (post-login dashboard) ----------------------------
+// Each card reads like: "PUBLIC … FUND / 3-Year / Annualised Return / 37.16% /
+// as at 11 Aug 2026". Scan small elements carrying that signature; dedupe by
+// fund name (nested nodes match too).
+function extractTopPerformers() {
+  const seen = {}, items = [];
+  let asAt = null;
+  document.querySelectorAll('div, li, article, section, td').forEach(function (el) {
+    const t = (el.innerText || '').replace(/\s+/g, ' ').trim();
+    if (t.length < 12 || t.length > 300) return;      // one card, not the page
+    if (!/Annualised Return/i.test(t)) return;
+    const nameM = t.match(/PUBLIC [A-Z0-9 .,'&()\/-]*?FUND/i);
+    const pctM  = t.match(/(\d+(?:\.\d+)?)\s*%/);
+    if (!nameM || !pctM) return;
+    const name = nameM[0].replace(/\s+/g, ' ').trim();
+    if (seen[name]) return;
+    seen[name] = 1;
+    const atM = t.match(/as at ([0-9]{1,2} \w+ [0-9]{4})/i);
+    if (atM) asAt = atM[1];
+    items.push({ name: name, value: parseFloat(pctM[1]), rank: items.length });
+  });
+  return { items: items, as_at: asAt };
+}
+
+function sendTop(statusEl) {
+  const r = extractTopPerformers();
+  if (!r.items.length) { if (statusEl) statusEl.textContent = '🏆 no top-fund cards on this page'; return; }
+  GM_xmlhttpRequest({
+    method: 'POST',
+    url: API_BASE + '/ingest-top',
+    headers: { 'Content-Type': 'application/json', 'X-PMOAI-TOKEN': TOKEN },
+    data: JSON.stringify({ as_at: r.as_at, metric: '3-Year Annualised Return', items: r.items }),
+    onload: res => {
+      try {
+        const j = JSON.parse(res.responseText);
+        if (statusEl) statusEl.textContent = j.ok ? ('🏆 ' + j.stored + ' top funds saved to pmoai') : '🏆 save failed';
+      } catch (e) { if (statusEl) statusEl.textContent = '🏆 save failed'; }
+    },
+    onerror: () => { if (statusEl) statusEl.textContent = '🏆 save failed (network)'; },
+  });
+}
+
 function panel() {
   const box = document.createElement('div');
   box.style.cssText = 'position:fixed;right:14px;bottom:14px;z-index:2147483647;'
@@ -261,6 +303,8 @@ function panel() {
       background:#1a7;color:#fff;border:0;border-radius:5px;cursor:pointer">Capture this tab</button>
     <button id="pmoai-hold" style="margin-top:6px;width:100%;padding:7px;
       background:#26c;color:#fff;border:0;border-radius:5px;cursor:pointer">Capture holdings → pmoai</button>
+    <button id="pmoai-top" style="margin-top:6px;width:100%;padding:7px;
+      background:#b8860b;color:#fff;border:0;border-radius:5px;cursor:pointer">🏆 Capture top-performer cards</button>
     <button id="pmoai-dlall" style="margin-top:6px;width:100%;padding:7px;
       background:#555;color:#fff;border:0;border-radius:5px;cursor:pointer">Download all PDFs on this page</button>
     <label style="display:flex;align-items:center;gap:7px;margin-top:8px;cursor:pointer;font-size:11px">
@@ -315,6 +359,10 @@ function panel() {
     GM_setValue('cap_' + kind, { tsv: r.tsv, rows: r.rows, ts: Date.now(), url: location.href });
     msg.textContent = `✅ captured ${kind} (${r.rows} rows)`;
     render();
+  };
+
+  box.querySelector('#pmoai-top').onclick = () => {
+    sendTop(box.querySelector('#pmoai-msg'));
   };
 
   // Bulk statement download: click every per-row PDF button, spaced out so

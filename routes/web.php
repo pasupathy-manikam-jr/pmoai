@@ -21,6 +21,7 @@ Route::post('/ingest-detail', [SnapshotController::class, 'ingestDetail'])->name
 Route::post('/ingest-mfr', [SnapshotController::class, 'ingestMfr'])->name('snapshots.ingestMfr');
 Route::post('/ingest-holdings', [SnapshotController::class, 'ingestHoldings'])->name('snapshots.ingestHoldings');
 Route::post('/ingest-page', [SnapshotController::class, 'ingestPage'])->name('snapshots.ingestPage');
+Route::post('/ingest-top', [SnapshotController::class, 'ingestTop'])->name('snapshots.ingestTop');
 Route::post('/portfolio/review', [SnapshotController::class, 'portfolioReview'])->name('portfolio.review');
 Route::get('/portfolio/review/status', [SnapshotController::class, 'portfolioReviewStatus'])->name('portfolio.reviewStatus');
 Route::get('/simulator', [SnapshotController::class, 'simulator'])->name('simulator');

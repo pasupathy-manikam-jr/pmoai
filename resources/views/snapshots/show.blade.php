@@ -379,6 +379,29 @@
             @endif
         </details>
 
+        @if ($featured->isNotEmpty())
+            <details class="stress-box">
+                <summary class="stress-h">🏆 Public Mutual top performers @if ($featured->first()->as_at)<span class="stress-worst">as at {{ $featured->first()->as_at }}</span>@endif</summary>
+                <p class="stress-intro">The funds Public Mutual is promoting on your dashboard, by {{ $featured->first()->metric }}. Captured from PMO — ✓ marks ones you already hold.</p>
+                <table class="stress-tbl">
+                    <tr><th>Fund</th><th class="r">Return</th><th>Yours?</th></tr>
+                    @foreach ($featured as $f)
+                        @php $held = $f->code && isset($heldCodeSet[strtoupper($f->code)]); $did = $f->code ? ($detailIdByCode[strtoupper($f->code)] ?? null) : null; @endphp
+                        <tr>
+                            <td>
+                                @if ($did)<a href="{{ route('details.show', $did) }}" target="_blank" rel="noopener" class="fund-link">{{ \Illuminate\Support\Str::of($f->name)->after('PUBLIC ') }}</a>
+                                @else{{ \Illuminate\Support\Str::of($f->name)->after('PUBLIC ') }}@endif
+                                @if ($f->code)<span class="fund-abbr">{{ strtoupper($f->code) }}</span>@endif
+                            </td>
+                            <td class="r pos">{{ $f->value !== null ? number_format($f->value, 2).'%' : '—' }}</td>
+                            <td>{{ $held ? '✓ held' : '' }}</td>
+                        </tr>
+                    @endforeach
+                </table>
+                <small class="ps-sub">Past performance, not a prediction — a fund near the top of a 3-year chart may already have run up. Check its entry timing on the <a href="{{ route('advisor') }}">Advisor</a> before adding.</small>
+            </details>
+        @endif
+
         @php
             // PMO order cut-off: 4:00 PM MYT on trading days (Mon–Fri,
             // excluding public holidays — which we can't know, so we say so).
