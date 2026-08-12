@@ -361,7 +361,7 @@
                 @if ($rc['ref_age'] !== null && $rc['ref_age'] > 21)
                     <tr>
                         <td>Fund reference data (factsheets)</td>
-                        <td class="r">{{ $rc['ref_age'] }} days old <span class="stress-worst">— re-capture fund pages to refresh</span></td>
+                        <td class="r">{{ $rc['ref_age'] }} days old <span class="stress-worst">— optional: re-capture only your {{ $rc['held_count'] }} held funds' pages</span></td>
                     </tr>
                 @endif
                 <tr>
