@@ -73,6 +73,20 @@
                 'Currency exposure' => 'How much of your book moves with a foreign currency. A foreign fund\'s RM value shifts when the ringgit moves, even if the fund is flat.',
                 'USD / MYR' => 'The ringgit price of one US dollar — a rise means your USD-exposed funds are worth more in RM.',
             ],
+            'Public Mutual rules (official)' => [
+                'Sales charge — equity / mixed / balanced' => 'Up to 5.0% of NAV; e-Series up to 3.75%. (EPF-MIS capped at 3%.)',
+                'Sales charge — bond / sukuk' => 'Up to 1.0% of NAV; e-Series up to 0.65%.',
+                'Sales charge — money market' => 'Nil — no charge to buy in.',
+                'Switching fee' => 'Minimum RM50 per switch — only RM1 for e-Series. Money-market and EPF-scheme switches are free.',
+                '90-day free switch' => 'Same-series fund-to-fund switches held ≥90 days are free of the load. Privilege Circle: unlimited waivers on loaded / 1%-load units via PMO.',
+                'PeEMAS (gold) — no switch' => 'The e-Emas Gold Fund has NO switch facility at all. The only exit is redeeming to cash.',
+                'Cross-series' => 'e-Series ↔ non-e cannot be switched — redeem to cash and buy fresh (a full sales charge applies).',
+                'Cooling-off (6 business days)' => 'First-time investors can cancel within 6 business days of Public Mutual receiving the form + payment. Refund = lower of (original, market) price + the sales charge returned.',
+                'Redemption charge' => 'None — no fee to sell units.',
+                'Redemption payout' => 'Within 7 business days (Privilege Circle 2; e-Series via PMO 4 business days).',
+                '4 PM cut-off + forward pricing' => 'Orders before 4 PM on a business day get that day\'s price; after 4 PM, the next business day. You always get the NEXT valuation point — never a price you can see in advance.',
+                'Minimum balance' => 'Leave the minimum units needed to keep the account open. Minimum redemption units vary by fund.',
+            ],
         ];
     @endphp
 
@@ -89,6 +103,12 @@
             </section>
         @endforeach
     </div>
+
+    <p class="ps-sub" style="margin:16px 0 0">The "Public Mutual rules (official)" figures are from Public Mutual's own investor guides
+        (<a href="https://www.publicmutual.com.my/pmb/investor-guide-investment" target="_blank" rel="noopener">Investment</a>,
+        <a href="https://www.publicmutual.com.my/pmb/investor-guide-switching" target="_blank" rel="noopener">Switching</a>,
+        <a href="https://www.publicmutual.com.my/pmb/investor-guide-redemption" target="_blank" rel="noopener">Redemption</a>),
+        captured Aug 2026. Maximums shown — the Manager may charge less. Always verify against your fund's current prospectus / PHS.</p>
 
     <style>
         .gloss-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
