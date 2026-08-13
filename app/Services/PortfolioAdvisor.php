@@ -164,6 +164,47 @@ class PortfolioAdvisor
         return ['score' => $score, 'band' => $band, 'factors' => $factors];
     }
 
+    /**
+     * 90-day free-switch status for a held fund. Same-series switches are free
+     * of the load once the units are held ≥90 days; the latest "in" transaction
+     * (II/AI/SWS/RII) starts that clock. Gold has no switch facility; PRS is
+     * locked — both flagged as not-switchable.
+     *
+     * @return array{state:string, days_left:?int, free_date:?string, since:?string}
+     */
+    private function freeSwitchStatus(array $h): array
+    {
+        if ($h['gold']) {
+            return ['state' => 'no_switch', 'days_left' => null, 'free_date' => null, 'since' => null];
+        }
+        if ($h['cat'] === 'PRS') {
+            return ['state' => 'locked', 'days_left' => null, 'free_date' => null, 'since' => null];
+        }
+
+        $lastIn = $h['code']
+            ? \App\Models\Transaction::whereRaw('upper(fund_code) = ?', [strtoupper($h['code'])])
+                ->whereIn('trans_type', ['II', 'AI', 'SWS', 'RII'])
+                ->max('trans_date')
+            : null;
+
+        if (! $lastIn) {
+            return ['state' => 'unknown', 'days_left' => null, 'free_date' => null, 'since' => null];
+        }
+
+        $since = \Illuminate\Support\Carbon::parse($lastIn);
+        $held = (int) $since->diffInDays(now());
+        if ($held >= 90) {
+            return ['state' => 'free', 'days_left' => 0, 'free_date' => null, 'since' => $since->toDateString()];
+        }
+
+        return [
+            'state'     => 'waiting',
+            'days_left' => 90 - $held,
+            'free_date' => $since->copy()->addDays(90)->toDateString(),
+            'since'     => $since->toDateString(),
+        ];
+    }
+
     /** Best same-category, same-series, ≤-risk, meaningfully-better fund, or null. */
     private function bestSwitchFor(array $h, array $catalog, array $heldCodes): ?array
     {
@@ -230,6 +271,11 @@ class PortfolioAdvisor
 
             $timing = $this->timingScore($entry, $h['r3']);
 
+            // 90-day free-switch clock: same-series switches are free of the
+            // load once units are held ≥90 days. The latest "in" transaction
+            // (buy / switch-in / reinvest) is the binding lot for that fund.
+            $switch = $this->freeSwitchStatus($h);
+
             // Pre-filled alert to act at a better moment: a ceiling to trim
             // into for a rising over-weight fund; a dip level for a better
             // entry when deploying / topping up. User can edit before arming.
@@ -259,6 +305,7 @@ class PortfolioAdvisor
                 'band'     => $timing['band'] ?? null,
                 'factors'  => $timing['factors'] ?? [],
                 'switch_to' => $better['name'] ?? null,
+                'switch'   => $switch,
                 'why'      => $why,
                 'price'      => $price,
                 'alert_cond'  => $alertCond,

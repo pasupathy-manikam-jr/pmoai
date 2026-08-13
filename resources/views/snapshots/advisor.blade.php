@@ -103,6 +103,16 @@
                                 <td><span class="board-act act-{{ \Illuminate\Support\Str::slug($r['action']) }}">{{ $r['action'] }}</span></td>
                                 <td class="board-fund">{!! \App\Support\FundLink::to($r['name'], null, $r['code']) !!}
                                     @if ($r['switch_to'])<span class="board-to">→ {{ \Illuminate\Support\Str::of($r['switch_to'])->after('PUBLIC ') }}</span>@endif
+                                    @php $sw = $r['switch']; @endphp
+                                    @if ($sw['state'] === 'free')
+                                        <span class="sw-badge sw-free" title="Same-series switch is free of the load once held ≥90 days">✓ free to switch · last in {{ \Illuminate\Support\Carbon::parse($sw['since'])->format('d M Y') }}</span>
+                                    @elseif ($sw['state'] === 'waiting')
+                                        <span class="sw-badge sw-wait" title="90-day clock runs from the latest buy / switch-in">🔒 free in {{ $sw['days_left'] }}d ({{ \Illuminate\Support\Carbon::parse($sw['free_date'])->format('d M') }}) · last in {{ \Illuminate\Support\Carbon::parse($sw['since'])->format('d M Y') }}</span>
+                                    @elseif ($sw['state'] === 'no_switch')
+                                        <span class="sw-badge sw-none">no switch (redeem only)</span>
+                                    @elseif ($sw['state'] === 'locked')
+                                        <span class="sw-badge sw-none">PRS — locked</span>
+                                    @endif
                                 </td>
                                 <td class="r">{{ number_format($r['weight'], 1) }}%</td>
                                 <td class="r {{ ($r['r3'] ?? 0) >= 0 ? 'pos' : 'neg' }}">{{ $r['r3'] !== null ? number_format($r['r3'], 1).'%' : '—' }}</td>
@@ -312,6 +322,8 @@
         .board .r { text-align: right; font-variant-numeric: tabular-nums; }
         .board-fund { font-weight: 500; white-space: nowrap; }
         .board-to { display: block; font-size: 11px; color: #2a6fc9; font-weight: 400; margin-top: 2px; }
+        .sw-badge { display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 4px; margin-top: 3px; cursor: help; }
+        .sw-free { background: #e8f4ee; color: #1a7f5a; } .sw-wait { background: #fdf3e7; color: #8a6a00; } .sw-none { background: #f2f2f2; color: #999; cursor: default; }
         .board-why { color: #555; line-height: 1.45; min-width: 260px; }
         .board-act { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .03em; color: #fff; padding: 3px 8px; border-radius: 5px; white-space: nowrap; }
         .act-trim { background: #c0392b; } .act-switch { background: #2a6fc9; } .act-redeem { background: #7d1f13; }

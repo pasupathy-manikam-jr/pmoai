@@ -77,6 +77,7 @@
                 'Sales charge — equity / mixed / balanced' => 'Up to 5.0% of NAV; e-Series up to 3.75%. (EPF-MIS capped at 3%.)',
                 'Sales charge — bond / sukuk' => 'Up to 1.0% of NAV; e-Series up to 0.65%.',
                 'Sales charge — money market' => 'Nil — no charge to buy in.',
+                'Money market — free to hold, charged to deploy' => 'e-Cash / money-market funds are free to buy, free to redeem, and free to switch to another money-market fund. BUT switching into an equity/bond fund pays the DESTINATION fund\'s sales charge (e.g. e-equity 3.75%) — that\'s why deploying idle e-Cash costs a fee. It\'s a liquid cash "parking spot" (~3% return); you only pay when you put it to work.',
                 'Switching fee' => 'Minimum RM50 per switch — only RM1 for e-Series. Money-market and EPF-scheme switches are free.',
                 '90-day free switch' => 'Same-series fund-to-fund switches held ≥90 days are free of the load. Privilege Circle: unlimited waivers on loaded / 1%-load units via PMO.',
                 'PeEMAS (gold) — no switch' => 'The e-Emas Gold Fund has NO switch facility at all. The only exit is redeeming to cash.',
