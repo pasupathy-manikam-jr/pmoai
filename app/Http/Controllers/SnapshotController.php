@@ -985,7 +985,16 @@ class SnapshotController extends Controller
         $detail = $code
             ? FundDetail::whereRaw('upper(code) = ?', [$code])->first()
             : null;
-        $detail ??= FundDetail::where('name', $data['name'])->first();
+        // Fall back to NORMALISED name, not exact — a re-capture whose name
+        // carries/drops the "FUND" suffix (e.g. "…GLOBAL EQUITY" vs "…GLOBAL
+        // EQUITY FUND") must update the same row, never create a duplicate.
+        if (! $detail) {
+            $norm = FundDetail::normalizeName($data['name']);
+            $detail = FundDetail::where('name', $data['name'])->first()
+                ?? FundDetail::all(['id', 'name'])
+                    ->first(fn ($d) => FundDetail::normalizeName($d->name) === $norm);
+            $detail = $detail ? FundDetail::find($detail->id) : null;
+        }
 
         // Re-capture refreshes the PAGE payload but must never wipe the
         // app-owned keys (user position, stored AI analysis).
