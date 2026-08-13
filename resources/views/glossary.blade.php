@@ -73,6 +73,15 @@
                 'Currency exposure' => 'How much of your book moves with a foreign currency. A foreign fund\'s RM value shifts when the ringgit moves, even if the fund is flat.',
                 'USD / MYR' => 'The ringgit price of one US dollar — a rise means your USD-exposed funds are worth more in RM.',
             ],
+            'Privilege Circle tiers (your perks)' => [
+                '★ Mutual Gold (your tier)' => 'Entry tier — 150,000 MGQP. Up to 15 free switches/year (fee waived on units held ≥90 days, same-series). Sales charge as low as 4.75% (Public/PB) / 3.60% (e-Series). Free-for-life MG–PB Visa card + 0.3% cash bonus. Free PA insurance (RM1 per MGQP, up to ~RM500–750k).',
+                'Mutual Elite' => '600,000 MGQP. Up to 25 free switches/year. Sales charge ~4.50% / 3.50%. Year-end + birthday gifts.',
+                'Mutual Signature' => '1,500,000 MGQP. Up to 30 switches. ~4.25% / 3.40%. Lifetime 2.80% rate after 15 years.',
+                'Mutual Platinum' => '3,000,000 MGQP. UNLIMITED switches. ~3.75% / 3.30%. Lifetime 1.50% after 12 yrs. Airport lounge (2 visits). One family member shares the lifetime rate.',
+                'Mutual Prestige' => '10,000,000 MGQP. Unlimited switches. ~3.00% both series. Lifetime 1.00% after 10 yrs. Lounge (5 visits). Two family members share the rate.',
+                'MGQP' => 'Mutual Gold Qualifying Points — roughly tracks how much you hold; determines your tier. More invested (in qualifying funds) = more points = higher tier.',
+                'Switch waiver (the "free switch")' => 'Your tier waives the switching FEE on same-series switches after 90 days — Gold gets 15/year. It waives the fee, not the loss: a fund that\'s down is still down when you switch it.',
+            ],
             'Public Mutual rules (official)' => [
                 'Sales charge — equity / mixed / balanced' => 'Up to 5.0% of NAV; e-Series up to 3.75%. (EPF-MIS capped at 3%.)',
                 'Sales charge — bond / sukuk' => 'Up to 1.0% of NAV; e-Series up to 0.65%.',
