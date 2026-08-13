@@ -379,6 +379,25 @@
             @endif
         </details>
 
+        @if ($membership)
+            <details class="stress-box">
+                <summary class="stress-h">🎖️ Privilege Circle — {{ $membership['tier'] }}
+                    @if ($membership['gap'])<span class="stress-worst">{{ number_format($membership['gap'], 0) }} pts to {{ $membership['next_tier'] }}</span>@endif
+                </summary>
+                <p class="stress-intro">Your Public Mutual membership status, read from your captured Portfolio page @if ($membership['as_of'])(as of {{ $membership['as_of'] }})@endif. Perks are in the <a href="{{ route('glossary') }}">glossary</a>.</p>
+                <table class="stress-tbl">
+                    <tr><td>Tier</td><td class="r"><b>{{ $membership['tier'] }}</b></td></tr>
+                    <tr><td>Your MGQP</td><td class="r">{{ number_format($membership['mgqp'], 0) }}</td></tr>
+                    @if ($membership['next_tier'])
+                        <tr><td>To {{ $membership['next_tier'] }}</td><td class="r">{{ number_format($membership['gap'], 0) }} more</td></tr>
+                    @endif
+                    <tr><td>Free switches / year</td><td class="r">{{ $membership['switches'] }}</td></tr>
+                    <tr><td>Free PA insurance cover</td><td class="r">RM {{ number_format($membership['pa_cover'], 0) }} <span class="stress-worst">(cap RM{{ number_format($membership['pa_cap'], 0) }})</span></td></tr>
+                </table>
+                <small class="ps-sub">MGQP is PMO's own points figure (not 1:1 with ringgit). Cover = RM1 per MGQP. Updates when you re-capture the Portfolio page.</small>
+            </details>
+        @endif
+
         @if ($featured->isNotEmpty())
             <details class="stress-box">
                 <summary class="stress-h">🏆 Public Mutual top performers @if ($featured->first()->as_at)<span class="stress-worst">as at {{ $featured->first()->as_at }}</span>@endif</summary>

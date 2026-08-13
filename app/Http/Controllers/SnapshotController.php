@@ -359,6 +359,9 @@ class SnapshotController extends Controller
         $expoHistory = \App\Models\PortfolioSnapshot::whereNotNull('exposure')
             ->orderBy('snap_date')->get(['snap_date', 'exposure']);
 
+        // Privilege Circle status, parsed from the latest captured Portfolio page.
+        $membership = app(\App\Services\MembershipService::class)->current();
+
         // PMO's captured "top performer" cards + which of them you already hold.
         $featured = \App\Models\FeaturedFund::orderBy('rank')->get();
         $heldCodeSet = FundDetail::whereRaw("payload->'position'->>'current_value' is not null")
@@ -371,7 +374,7 @@ class SnapshotController extends Controller
             'alerts', 'history', 'review', 'past', 'prsThisYear', 'prsXirr',
             'transactions', 'pending', 'backtest', 'attribution', 'reconcile',
             'prsHistory', 'prsTotals', 'expoHistory',
-            'featured', 'heldCodeSet', 'detailIdByCode',
+            'featured', 'heldCodeSet', 'detailIdByCode', 'membership',
         ));
     }
 
