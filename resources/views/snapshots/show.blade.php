@@ -312,14 +312,83 @@
 
             <div id="tab-overview" class="ps-tabpane">
 
-        <p class="ps-eyebrow">Portfolio · data captured {{ $snapshot->updated_at->format('Y-m-d H:i') }}
-            @unless (in_array($snapshot->status, ['recommended', 'failed', 'stored']))
-                · <span class="ps-working">processing…</span>
-            @endunless
-            · <a href="{{ route('snapshots.report', $snapshot) }}">🖶 printable report</a>
-        </p>
+        @php
+            $ribbon = collect($portfolio)->map(fn ($h) => [
+                'name' => (string) \Illuminate\Support\Str::of($h['name'])->after('PUBLIC '),
+                'val'  => (float) $h['value'],
+                'w'    => $ptVal > 0 ? $h['value'] / $ptVal * 100 : 0,
+            ])->sortByDesc('val')->values();
+            $rpal = ['#c8102e', '#e07a1f', '#e0b020', '#1a9a63', '#2a6fc9', '#7a5cd0', '#12a594', '#b0567a', '#8a8f98', '#5a6270'];
+            $plPct = $ptInv > 0 ? $ptPl / $ptInv * 100 : 0;
+        @endphp
+        <div class="ov-hero">
+            <div class="ov-hero-l">
+                <span class="ov-eyebrow">Portfolio value · {{ $snapshot->updated_at->format('d M Y') }}</span>
+                <div class="ov-total"><span class="ov-cur">RM</span>{{ number_format($ptVal, 0) }}</div>
+                <div class="ov-pl {{ $ptPl >= 0 ? 'up' : 'down' }}">
+                    {{ $ptPl >= 0 ? '▲' : '▼' }} {{ $ptPl >= 0 ? '+' : '−' }}RM {{ number_format(abs($ptPl), 0) }}
+                    <span>({{ $ptPl >= 0 ? '+' : '' }}{{ number_format($plPct, 1) }}%) unrealised</span>
+                </div>
+            </div>
+            <div class="ov-hero-r">
+                <div class="ov-stat"><span>Invested</span><b>RM {{ number_format($ptInv, 0) }}</b></div>
+                <div class="ov-stat"><span>Funds</span><b>{{ $portfolio->count() }}</b></div>
+                @if ($membership)<div class="ov-stat"><span>Tier</span><b>{{ (string) \Illuminate\Support\Str::of($membership['tier'])->after('Mutual ') }}</b></div>@endif
+                <div class="ov-stat"><a href="{{ route('snapshots.report', $snapshot) }}" class="ov-report">Report ↗</a></div>
+            </div>
+            <div class="ov-ribbon" role="img" aria-label="Allocation by fund">
+                @foreach ($ribbon as $i => $s)
+                    <span style="width:{{ round($s['w'], 2) }}%;background:{{ $rpal[$i % count($rpal)] }}" title="{{ $s['name'] }} — {{ number_format($s['w'], 1) }}%"></span>
+                @endforeach
+            </div>
+            <div class="ov-ribbon-key">
+                @foreach ($ribbon->take(4) as $i => $s)
+                    <span class="ov-key"><i style="background:{{ $rpal[$i % count($rpal)] }}"></i>{{ \Illuminate\Support\Str::limit($s['name'], 24) }} <b>{{ number_format($s['w'], 0) }}%</b></span>
+                @endforeach
+                @if ($ribbon->count() > 4)<span class="ov-key ov-more">+{{ $ribbon->count() - 4 }} more</span>@endif
+            </div>
+        </div>
+        <style>
+            .ov-hero { position: relative; overflow: hidden; border-radius: 18px; padding: 26px 28px 20px;
+                margin: 2px 0 4px; color: #f3f1ea;
+                background: radial-gradient(120% 140% at 88% 8%, #3a2026 0%, #1c2030 42%, #14161d 100%);
+                box-shadow: 0 14px 36px rgba(18,20,28,.22);
+                display: grid; grid-template-columns: 1fr auto; grid-template-areas: 'l r' 'ribbon ribbon' 'key key'; gap: 4px 24px; align-items: end; }
+            .ov-hero-l { grid-area: l; } .ov-hero-r { grid-area: r; display: flex; gap: 26px; align-items: flex-end; }
+            .ov-eyebrow { font: 600 .64rem 'IBM Plex Mono', monospace; letter-spacing: .18em; text-transform: uppercase; color: #a49f95; }
+            .ov-total { font: 800 clamp(2.3rem, 5.5vw, 3.5rem)/1 'Archivo', sans-serif; letter-spacing: -.025em; margin: 8px 0 10px; display: flex; align-items: baseline; gap: 9px; font-variant-numeric: tabular-nums; }
+            .ov-total .ov-cur { font-size: .38em; font-weight: 600; color: #8b877f; letter-spacing: .02em; }
+            .ov-pl { font: 700 1rem 'Archivo', sans-serif; display: flex; align-items: baseline; gap: 9px; }
+            .ov-pl span { font-size: .78em; font-weight: 400; color: #9c988f; }
+            .ov-pl.up { color: #46cf8b; } .ov-pl.down { color: #ff6d6d; }
+            .ov-stat { display: flex; flex-direction: column; gap: 4px; }
+            .ov-stat span { font: 600 .58rem 'IBM Plex Mono', monospace; letter-spacing: .13em; text-transform: uppercase; color: #928e85; }
+            .ov-stat b { font: 700 1.05rem 'Archivo', sans-serif; color: #f3f1ea; font-variant-numeric: tabular-nums; }
+            .ov-report { color: #ff8a8a; text-decoration: none; font: 700 .8rem 'Archivo', sans-serif; }
+            .ov-report:hover { color: #fff; }
+            .ov-ribbon { grid-area: ribbon; display: flex; height: 15px; border-radius: 8px; overflow: hidden; margin: 18px 0 9px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.06); }
+            .ov-ribbon span { height: 100%; transition: filter .15s ease; }
+            .ov-ribbon span:hover { filter: brightness(1.18); }
+            .ov-ribbon-key { grid-area: key; display: flex; flex-wrap: wrap; gap: 5px 18px; font-size: 11.5px; color: #bdb9b0; }
+            .ov-key { display: inline-flex; align-items: center; gap: 6px; }
+            .ov-key i { width: 9px; height: 9px; border-radius: 2px; }
+            .ov-key b { color: #f3f1ea; font-variant-numeric: tabular-nums; }
+            .ov-more { color: #8f8b82; }
+            @media (max-width: 640px) { .ov-hero { grid-template-columns: 1fr; grid-template-areas: 'l' 'r' 'ribbon' 'key'; } .ov-hero-r { gap: 18px; flex-wrap: wrap; } }
+            /* dashboard grid for the detail panels */
+            .ov-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 14px; align-items: start; }
+            .ov-grid > .ov-group { grid-column: 1 / -1; margin: 20px 0 6px; }
+            .ov-grid > .ov-group:first-child { margin-top: 14px; }
+            .ov-grid > details.stress-box { margin: 0; }
+            .ov-grid > style { display: none; }
+            @media (max-width: 760px) { .ov-grid { grid-template-columns: 1fr; } }
+        </style>
+        @if (! in_array($snapshot->status, ['recommended', 'failed', 'stored']))
+            <p class="ps-eyebrow"><span class="ps-working">processing…</span></p>
+        @endif
 
         @php $rc = $reconcile; @endphp
+        <div class="ov-grid">
         <h3 class="ov-group"><span class="ov-ic">🩺</span> Health &amp; status</h3>
         <details class="stress-box" {{ $rc['tone'] !== 'open' ? 'open' : '' }}>
             <summary class="stress-h">🧮 Does this add up? — data check
@@ -750,25 +819,7 @@
         @endif
 
 
-            <div class="ps-hero" style="margin-top:2px">
-                <div class="ps-tile ps-tile-main">
-                    <label>Total value</label>
-                    <b>RM {{ number_format($ptVal, 2) }}</b>
-                </div>
-                <div class="ps-tile">
-                    <label>Invested</label>
-                    <b>RM {{ number_format($ptInv, 2) }}</b>
-                </div>
-                <div class="ps-tile">
-                    <label>Unrealised P/L</label>
-                    <b class="{{ $ptPl >= 0 ? 'pos' : 'neg' }}">{{ $fmtRm($ptPl) }}
-                        <small>({{ $ptPl >= 0 ? '+' : '' }}{{ number_format($ptPl / max($ptInv, 0.01) * 100, 2) }}%)</small></b>
-                </div>
-                <div class="ps-tile">
-                    <label>Funds held</label>
-                    <b>{{ $portfolio->count() }}</b>
-                </div>
-            </div>
+        </div>{{-- /.ov-grid --}}
 
         <div class="ps-grid2">
             <section class="ps-card">
