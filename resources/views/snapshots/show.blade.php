@@ -28,8 +28,8 @@
 
 
     @if ($fired->isNotEmpty())
-        <details class="alerts-fold" open>
-            <summary>🔔 {{ $fired->count() }} price alert{{ $fired->count() === 1 ? '' : 's' }} fired — click to show / hide</summary>
+        <details class="alerts-fold">
+            <summary>🔔 {{ $fired->count() }} price alert{{ $fired->count() === 1 ? '' : 's' }} fired — click to review</summary>
             @foreach ($fired as $a)
                 @php
                     $isIdx = (bool) $a->market_symbol;
@@ -320,6 +320,7 @@
         </p>
 
         @php $rc = $reconcile; @endphp
+        <h3 class="ov-group"><span class="ov-ic">🩺</span> Health &amp; status</h3>
         <details class="stress-box" {{ $rc['tone'] !== 'open' ? 'open' : '' }}>
             <summary class="stress-h">🧮 Does this add up? — data check
                 @if ($rc['tone'] === 'off')<span class="neg">⚠ check this</span>
@@ -455,6 +456,7 @@
             $prsOver = $prsTotal - 3000;
             $prsTone = $prsTotal < 3000 ? 'warn' : ($prsOver > 0 ? 'off' : 'open');
         @endphp
+        <h3 class="ov-group"><span class="ov-ic">🏦</span> Retirement (PRS)</h3>
         <details class="stress-box">
             <summary class="stress-h">🏦 PRS tax relief {{ $prsYr }}</summary>
             <table class="stress-tbl">
@@ -521,6 +523,7 @@
             $concTone = $topW >= 30 ? 'off' : ($topW >= 25 ? 'warn' : 'open');
             $shortN = fn ($n) => (string) \Illuminate\Support\Str::of($n)->after('PUBLIC ');
         @endphp
+        <h3 class="ov-group"><span class="ov-ic">📊</span> Risk &amp; exposure</h3>
         <details class="stress-box">
             <summary class="stress-h">📊 Concentration @if ($over->isNotEmpty())<span class="neg">⚠ over 30%</span>@endif</summary>
             <p class="stress-intro">Single-fund weight of the whole book. Over 30% means one fund's drop swings the whole portfolio.</p>
@@ -586,6 +589,7 @@
 
         @if ($attribution['tx_count'] > 0)
             @php $feeTot = $attribution['sales_charge'] + $attribution['sst']; @endphp
+            <h3 class="ov-group"><span class="ov-ic">💰</span> Money &amp; performance</h3>
             <details class="stress-box">
                 <summary class="stress-h">🧾 Cost &amp; return attribution</summary>
                 <p class="stress-intro">Where your money stands and what it cost. Fees are the real sales charges + SST from every transaction — the cumulative price of your buying and switching.</p>
@@ -670,6 +674,7 @@
 
         @php $stress = app(\App\Services\PortfolioStress::class)->run(); @endphp
         @if ($stress)
+            <h3 class="ov-group"><span class="ov-ic">🎯</span> Scenarios &amp; look-through</h3>
             <details class="stress-box">
                 <summary class="stress-h">🎯 Stress test — projected hit if…</summary>
                 <p class="stress-intro">If the market has a bad day, how much would <em>you</em> lose and which fund hurts most? A what-if, not a prediction — each fund's real PMO geography × the shock.</p>
@@ -685,17 +690,29 @@
                 <small class="ps-sub">Your real captured PMO geography × the shock — not a forecast. Shows where a move actually lands in your book.</small>
             </details>
             <style>
-                .stress-box { border: 1px solid #eee; border-radius: 6px; padding: 8px 10px; margin: 6px 0; }
-                details.stress-box > summary.stress-h { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 6px; user-select: none; }
+                /* --- overview panel theme --- */
+                .stress-box { background: #fff; border: 1px solid #e8e6df; border-radius: 12px;
+                    padding: 12px 16px; margin: 0 0 9px; box-shadow: 0 1px 2px rgba(20,24,40,.04);
+                    transition: box-shadow .15s ease, border-color .15s ease; }
+                .stress-box:hover { border-color: #d8d5cb; box-shadow: 0 2px 8px rgba(20,24,40,.06); }
+                details.stress-box[open] { box-shadow: 0 3px 12px rgba(20,24,40,.07); border-color: #d5d2c8; }
+                details.stress-box > summary.stress-h { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px; user-select: none; }
                 details.stress-box > summary.stress-h::-webkit-details-marker { display: none; }
-                details.stress-box > summary.stress-h::before { content: '▸'; font-size: 10px; color: #aaa; transition: transform .12s ease; }
-                details.stress-box[open] > summary.stress-h::before { transform: rotate(90deg); }
+                details.stress-box > summary.stress-h::after { content: '▸'; margin-left: auto; font-size: 11px; color: #b6b2a8; transition: transform .15s ease; }
+                details.stress-box[open] > summary.stress-h::after { transform: rotate(90deg); color: #c8102e; }
+                details.stress-box[open] > summary.stress-h { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #f0eee8; }
                 details.stress-box > summary.stress-h:hover { color: #c8102e; }
-                .stress-h { font-size: 12px; font-weight: 600; color: #444; }
-                .stress-intro { font-size: 11px; color: #777; margin: 3px 0 4px; line-height: 1.4; }
-                .stress-tbl { width: 100%; border-collapse: collapse; font-size: 12px; margin: 4px 0; }
-                .stress-tbl td { padding: 3px 6px; border-bottom: 1px solid #f2f2f2; }
-                .stress-worst { color: #999; text-align: right; }
+                .stress-h { font-size: 13px; font-weight: 600; color: #1c2438; letter-spacing: .005em; }
+                .stress-intro { font-size: 11.5px; color: #7a776e; margin: 3px 0 6px; line-height: 1.5; }
+                .stress-tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; margin: 4px 0; }
+                .stress-tbl td, .stress-tbl th { padding: 5px 7px; border-bottom: 1px solid #f4f2ec; }
+                .stress-tbl tr:last-child td { border-bottom: 0; }
+                .stress-worst { color: #a29e94; text-align: right; font-size: 11px; }
+                /* --- group dividers --- */
+                .ov-group { display: flex; align-items: center; gap: 10px; margin: 22px 0 10px;
+                    font: 700 .7rem 'IBM Plex Mono', monospace; letter-spacing: .12em; text-transform: uppercase; color: #9a968b; }
+                .ov-group::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, #e5e2da, transparent); }
+                .ov-group .ov-ic { font-size: 13px; }
             </style>
         @endif
         @if ($sectors)

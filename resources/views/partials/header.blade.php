@@ -1,8 +1,7 @@
 <header class="pm-header">
-    <a class="pm-brand" href="{{ route('snapshots.index') }}">PMFAI</a>
+    @php $pmfaiSnap = \App\Models\Snapshot::orderBy('id')->first(); @endphp
+    <a class="pm-brand" href="{{ $pmfaiSnap ? route('snapshots.show', $pmfaiSnap) : route('snapshots.index') }}">PMFAI</a>
     <nav>
-        <a href="{{ route('snapshots.index') }}"
-           class="{{ request()->routeIs('snapshots.index') ? 'active' : '' }}">Analyses</a>
         <a href="{{ route('simulator') }}"
            class="{{ request()->routeIs('simulator') ? 'active' : '' }}">Simulator</a>
         <a href="{{ route('rebalance') }}"
