@@ -1062,17 +1062,32 @@
             <script>
             (function () {
                 var tabs = document.querySelectorAll('.ps-tab');
-                function activate(btn) {
+                var KEY = 'ps-active-tab';
+                function byTab(id) { return document.querySelector('[data-tab="' + id + '"]'); }
+                function activate(btn, remember) {
+                    if (!btn) return;
                     tabs.forEach(function (b) {
                         b.classList.toggle('active', b === btn);
                         document.getElementById(b.dataset.tab).hidden = (b !== btn);
                     });
+                    if (remember) {
+                        try { localStorage.setItem(KEY, btn.dataset.tab); } catch (e) {}
+                        history.replaceState(null, '', '#' + btn.dataset.tab);
+                    }
                 }
                 tabs.forEach(function (btn) {
-                    btn.addEventListener('click', function () { activate(btn); });
+                    btn.addEventListener('click', function () { activate(btn, true); });
                 });
-                if (window.location.hash === '#portfolio-review') {
-                    activate(document.querySelector('[data-tab="tab-review"]'));
+                // Restore on load: URL hash first, then the last tab you were on.
+                var h = (window.location.hash || '').replace('#', '');
+                if (h === 'portfolio-review') {
+                    activate(byTab('tab-review'));
+                } else if (h && byTab(h)) {
+                    activate(byTab(h));
+                } else {
+                    var saved = null;
+                    try { saved = localStorage.getItem(KEY); } catch (e) {}
+                    if (saved && byTab(saved)) activate(byTab(saved));
                 }
             })();
             </script>

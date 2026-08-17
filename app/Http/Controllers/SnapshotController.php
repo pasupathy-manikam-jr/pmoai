@@ -985,6 +985,14 @@ class SnapshotController extends Controller
         // Case-insensitive: e-Series catalog codes are mixed case (PeEMAS)
         // while PMO detail pages report them uppercase.
         $code = ! empty($data['code']) ? strtoupper(trim($data['code'])) : null;
+        // If the userscript didn't resolve a code, fill it from the catalogue by
+        // name — so the detail page always has a code to link/match on.
+        if (! $code) {
+            $norm = FundDetail::normalizeName($data['name']);
+            $code = optional(Fund::whereNotNull('code')->get(['code', 'name'])
+                ->first(fn ($f) => FundDetail::normalizeName($f->name) === $norm))->code;
+            $code = $code ? strtoupper($code) : null;
+        }
         $detail = $code
             ? FundDetail::whereRaw('upper(code) = ?', [$code])->first()
             : null;
