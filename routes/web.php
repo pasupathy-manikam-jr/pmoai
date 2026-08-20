@@ -27,6 +27,11 @@ Route::get('/portfolio/review/status', [SnapshotController::class, 'portfolioRev
 Route::get('/simulator', [SnapshotController::class, 'simulator'])->name('simulator');
 Route::get('/rebalance', [SnapshotController::class, 'rebalance'])->name('rebalance');
 Route::get('/advisor', [SnapshotController::class, 'advisor'])->name('advisor');
+Route::post('/action/{item}/toggle', function (\App\Models\ActionItem $item) {
+    $item->update(['done' => ! $item->done, 'done_at' => $item->done ? null : now()]);
+
+    return back()->withFragment('today');
+})->name('action.toggle');
 Route::post('/alerts', [SnapshotController::class, 'storeAlert'])->name('alerts.store');
 Route::post('/alerts/{alert}/delete', [SnapshotController::class, 'deleteAlert'])->name('alerts.delete');
 Route::post('/advisor/explain', [SnapshotController::class, 'adviseExplain'])->name('advisor.explain');

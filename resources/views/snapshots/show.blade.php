@@ -387,6 +387,123 @@
             <p class="ps-eyebrow"><span class="ps-working">processing…</span></p>
         @endif
 
+        @php $pending = $actions->where('done', false); $doneItems = $actions->where('done', true); @endphp
+        <section id="today" class="today-card">
+            <div class="today-head">
+                <span class="today-title">Today</span>
+                <span class="today-cut {{ $daily['cutoff']['closed'] ? 'off' : '' }}">
+                    @if ($daily['cutoff']['closed'])
+                        🔒 Market closed — next cut-off {{ $daily['cutoff']['label'] }}
+                    @else
+                        ⏳ <b id="cut-countdown" data-target="{{ $daily['cutoff']['target'] }}">—</b> to the 4 PM cut-off ({{ $daily['cutoff']['label'] }})
+                    @endif
+                </span>
+            </div>
+
+            <div class="today-grid">
+                <div class="today-change {{ ($daily['total_rm'] ?? 0) >= 0 ? 'up' : 'down' }}">
+                    <span class="today-lbl">Change today</span>
+                    <b>{{ ($daily['total_rm'] ?? 0) >= 0 ? '▲ +' : '▼ −' }}RM {{ number_format(abs($daily['total_rm'] ?? 0), 0) }}</b>
+                    <small>{{ $daily['moved_n'] }} funds moved · vs previous price</small>
+                </div>
+                <div class="today-movers">
+                    <div class="today-col">
+                        <span class="today-lbl up">Gainers</span>
+                        @forelse ($daily['gainers'] as $g)
+                            <div class="mv"><span>{{ $g['name'] }}</span><b class="up">+{{ number_format($g['pct'], 2) }}%</b><i>+RM{{ number_format($g['rm'], 0) }}</i></div>
+                        @empty <div class="mv-none">none up today</div> @endforelse
+                    </div>
+                    <div class="today-col">
+                        <span class="today-lbl down">Losers</span>
+                        @forelse ($daily['losers'] as $l)
+                            <div class="mv"><span>{{ $l['name'] }}</span><b class="down">{{ number_format($l['pct'], 2) }}%</b><i>−RM{{ number_format(abs($l['rm']), 0) }}</i></div>
+                        @empty <div class="mv-none">none down today</div> @endforelse
+                    </div>
+                </div>
+            </div>
+
+            @if (! empty($daily['flags']))
+                <div class="today-flags">
+                    @foreach ($daily['flags'] as $f)<span class="today-flag">⚠ {{ $f }}</span>@endforeach
+                </div>
+            @endif
+
+            <p class="today-ctx">{{ $daily['context'] }}</p>
+
+            <div class="today-todo">
+                <div class="today-todo-h">To do @if ($pending->count())<span>{{ $pending->count() }} left</span>@else<span class="up">all done ✓</span>@endif</div>
+                @foreach ($pending as $a)
+                    <form method="POST" action="{{ route('action.toggle', $a) }}" class="todo-row">
+                        @csrf
+                        <button type="submit" class="todo-box" aria-label="Mark done"></button>
+                        <span>{{ $a->label }}</span>
+                    </form>
+                @endforeach
+                @if ($doneItems->count())
+                    <details class="todo-done">
+                        <summary>{{ $doneItems->count() }} done</summary>
+                        @foreach ($doneItems as $a)
+                            <form method="POST" action="{{ route('action.toggle', $a) }}" class="todo-row done">
+                                @csrf
+                                <button type="submit" class="todo-box checked" aria-label="Mark not done">✓</button>
+                                <span>{{ $a->label }}</span>
+                            </form>
+                        @endforeach
+                    </details>
+                @endif
+            </div>
+        </section>
+        <style>
+            .today-card { border: 1px solid #e8e6df; border-radius: 16px; background: #fff; padding: 18px 20px; margin: 8px 0 6px; box-shadow: 0 2px 10px rgba(20,24,40,.05); }
+            .today-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+            .today-title { font: 800 1.15rem 'Archivo', sans-serif; letter-spacing: -.01em; color: #16181d; }
+            .today-cut { font: 600 .8rem 'IBM Plex Mono', monospace; color: #8a6a00; background: #fdf6e7; padding: 5px 10px; border-radius: 20px; }
+            .today-cut.off { color: #7a776e; background: #f2f0ea; }
+            .today-cut b { font-variant-numeric: tabular-nums; }
+            .today-grid { display: grid; grid-template-columns: minmax(160px, 240px) 1fr; gap: 20px; align-items: stretch; }
+            .today-change { display: flex; flex-direction: column; justify-content: center; gap: 3px; border-radius: 12px; padding: 14px 16px; background: #f7f9f7; }
+            .today-change.down { background: #fdf2f0; } .today-change.up { background: #eef7f0; }
+            .today-change b { font: 800 1.8rem 'Archivo', sans-serif; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+            .today-change.up b { color: #0e7a46; } .today-change.down b { color: #bb2018; }
+            .today-lbl { font: 600 .6rem 'IBM Plex Mono', monospace; letter-spacing: .12em; text-transform: uppercase; color: #9a968b; }
+            .today-lbl.up { color: #0e7a46; } .today-lbl.down { color: #bb2018; }
+            .today-change small { font-size: 11px; color: #9a968b; }
+            .today-movers { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 20px; }
+            .today-col { display: flex; flex-direction: column; gap: 4px; }
+            .mv { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: baseline; font-size: 12.5px; padding: 3px 0; border-bottom: 1px solid #f4f2ec; }
+            .mv b { font-variant-numeric: tabular-nums; } .mv b.up { color: #0e7a46; } .mv b.down { color: #bb2018; }
+            .mv i { font-style: normal; font-size: 11px; color: #9a968b; font-variant-numeric: tabular-nums; min-width: 62px; text-align: right; }
+            .mv-none { font-size: 12px; color: #b6b2a8; padding: 3px 0; }
+            .today-flags { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 0; }
+            .today-flag { font-size: 11.5px; color: #8a6a00; background: #fdf3e7; border: 1px solid #f3e6cf; padding: 4px 9px; border-radius: 7px; }
+            .today-ctx { font-size: 12.5px; color: #667; margin: 12px 0 0; line-height: 1.5; }
+            .today-todo { margin-top: 14px; padding-top: 12px; border-top: 1px solid #f0eee8; }
+            .today-todo-h { font: 700 .72rem 'IBM Plex Mono', monospace; letter-spacing: .1em; text-transform: uppercase; color: #7a776e; margin-bottom: 8px; }
+            .today-todo-h span { color: #c8102e; font-weight: 700; } .today-todo-h span.up { color: #0e7a46; }
+            .todo-row { display: flex; align-items: center; gap: 10px; margin: 0 0 5px; font-size: 13px; color: #2a2d34; }
+            .todo-box { width: 18px; height: 18px; flex: none; border: 1.5px solid #cfccc2; border-radius: 5px; background: #fff; cursor: pointer; font-size: 11px; line-height: 1; color: #fff; padding: 0; transition: background .12s, border-color .12s; }
+            .todo-box:hover { border-color: #0e7a46; }
+            .todo-box.checked { background: #0e7a46; border-color: #0e7a46; }
+            .todo-row.done span { color: #a29e94; text-decoration: line-through; }
+            .todo-done { margin-top: 6px; } .todo-done > summary { font-size: 11.5px; color: #9a968b; cursor: pointer; }
+            @media (max-width: 680px) { .today-grid { grid-template-columns: 1fr; } .today-movers { grid-template-columns: 1fr; } }
+        </style>
+        <script>
+        (function () {
+            var el = document.getElementById('cut-countdown');
+            if (!el) return;
+            var target = new Date(el.dataset.target).getTime();
+            function tick() {
+                var ms = target - Date.now();
+                if (ms <= 0) { el.textContent = 'passed'; return; }
+                var h = Math.floor(ms / 3.6e6), m = Math.floor(ms % 3.6e6 / 6e4), s = Math.floor(ms % 6e4 / 1e3);
+                el.textContent = (h > 24 ? Math.floor(h / 24) + 'd ' + (h % 24) + 'h' : h + 'h ' + String(m).padStart(2, '0') + 'm ' + String(s).padStart(2, '0') + 's');
+                setTimeout(tick, 1000);
+            }
+            tick();
+        })();
+        </script>
+
         @php $rc = $reconcile; @endphp
         <div class="ov-grid">
         <h3 class="ov-group"><span class="ov-ic">🩺</span> Health &amp; status</h3>

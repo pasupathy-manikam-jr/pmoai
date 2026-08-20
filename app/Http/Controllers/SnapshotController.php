@@ -359,6 +359,10 @@ class SnapshotController extends Controller
         $expoHistory = \App\Models\PortfolioSnapshot::whereNotNull('exposure')
             ->orderBy('snap_date')->get(['snap_date', 'exposure']);
 
+        // "Today" card — daily movers, cut-off clock, drift flags, checklist.
+        $daily = app(\App\Services\DailyOverview::class)->build();
+        $actions = \App\Models\ActionItem::orderBy('sort')->get();
+
         // Privilege Circle status, parsed from the latest captured Portfolio page.
         $membership = app(\App\Services\MembershipService::class)->current();
 
@@ -374,7 +378,7 @@ class SnapshotController extends Controller
             'alerts', 'history', 'review', 'past', 'prsThisYear', 'prsXirr',
             'transactions', 'pending', 'backtest', 'attribution', 'reconcile',
             'prsHistory', 'prsTotals', 'expoHistory',
-            'featured', 'heldCodeSet', 'detailIdByCode', 'membership',
+            'featured', 'heldCodeSet', 'detailIdByCode', 'membership', 'daily', 'actions',
         ));
     }
 
