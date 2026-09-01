@@ -1092,7 +1092,7 @@
             </div>
 
             <table id="catalog">
-                <tr><th>#</th><th>Name</th><th>Code</th><th>Screen</th><th>Type</th><th>Shariah</th><th>Unit</th><th>YTD%</th><th>1Y%</th><th>3Y%</th><th>5Y%</th><th>10Y%</th><th>Detail</th></tr>
+                <tr><th>#</th><th>Name</th><th>Code</th><th>Screen</th><th>Type</th><th>Shariah</th><th class="r">Price date</th><th>Ccy</th><th class="r cat-sort" data-col="8">Price</th><th class="r cat-sort" data-col="9">Change</th><th class="r cat-sort" data-col="10">Change%</th><th>Detail</th></tr>
                 @foreach ($funds as $f)
                     @php $tag = $ideas[$f->id] ?? null; @endphp
                     <tr data-name="{{ strtolower($f->name.' '.($f->code ?? '')) }}"
@@ -1113,12 +1113,12 @@
                         </td>
                         <td>{{ $f->fund_type ?? '—' }}</td>
                         <td>{{ $f->shariah ? 'Yes' : 'No' }}</td>
-                        <td>{{ $f->unit_price ?? '—' }}</td>
-                        <td>{{ $f->return_ytd ?? '—' }}</td>
-                        <td>{{ $f->return_1y ?? '—' }}</td>
-                        <td>{{ $f->return_3y ?? '—' }}</td>
-                        <td>{{ $f->return_5y ?? '—' }}</td>
-                        <td>{{ $f->return_10y ?? '—' }}</td>
+                        @php $px = $f->code ? ($catPrices[\App\Models\Fund::canonicalCode(strtoupper($f->code))] ?? null) : null; @endphp
+                        <td class="r cat-code">{{ $px ? \Illuminate\Support\Carbon::parse($px['date'])->format('d M') : '—' }}</td>
+                        <td>{{ $px ? ($f->currency ?? 'MYR') : '—' }}</td>
+                        <td class="r" data-v="{{ $px ? $px['price'] : '' }}">{{ $px ? number_format($px['price'], 4) : '—' }}</td>
+                        <td class="r {{ $px && $px['chg'] !== null ? ($px['chg'] >= 0 ? 'pos' : 'neg') : '' }}" data-v="{{ $px && $px['chg'] !== null ? $px['chg'] : '' }}">{{ $px && $px['chg'] !== null ? ($px['chg'] >= 0 ? '+' : '−').number_format(abs($px['chg']), 4) : '—' }}</td>
+                        <td class="r {{ $px && $px['pct'] !== null ? ($px['pct'] >= 0 ? 'pos' : 'neg') : '' }}" data-v="{{ $px && $px['pct'] !== null ? $px['pct'] : '' }}">{{ $px && $px['pct'] !== null ? ($px['pct'] >= 0 ? '+' : '').number_format($px['pct'], 2).'%' : '—' }}</td>
                         <td>
                             @php
                                 $did = ($f->code ? ($detailByCode[strtoupper($f->code)] ?? null) : null)
@@ -1171,8 +1171,37 @@
                 series.addEventListener('change', apply);
                 shariah.addEventListener('change', apply);
                 idea.addEventListener('change', apply);
+
+                // Click-to-sort on Price / Change / Change%.
+                var dir = {};
+                document.querySelectorAll('#catalog .cat-sort').forEach(function (th) {
+                    th.addEventListener('click', function () {
+                        var col = +th.dataset.col;
+                        var d = dir[col] = (dir[col] === 'desc' ? 'asc' : 'desc');
+                        var table = document.getElementById('catalog');
+                        var rows = Array.prototype.slice.call(document.querySelectorAll('#catalog tr[data-name]'));
+                        rows.sort(function (a, b) {
+                            var av = parseFloat(a.children[col].getAttribute('data-v'));
+                            var bv = parseFloat(b.children[col].getAttribute('data-v'));
+                            var an = isNaN(av), bn = isNaN(bv);
+                            if (an && bn) return 0;
+                            if (an) return 1;              // blanks always last
+                            if (bn) return -1;
+                            return d === 'asc' ? av - bv : bv - av;
+                        });
+                        rows.forEach(function (r) { table.appendChild(r); });
+                        document.querySelectorAll('#catalog .cat-sort').forEach(function (h) { h.removeAttribute('data-arrow'); });
+                        th.setAttribute('data-arrow', d === 'asc' ? '▲' : '▼');
+                        apply();   // keep filters + renumber
+                    });
+                });
             })();
             </script>
+            <style>
+                #catalog .cat-sort { cursor: pointer; user-select: none; white-space: nowrap; }
+                #catalog .cat-sort:hover { color: #c8102e; }
+                #catalog .cat-sort::after { content: attr(data-arrow); font-size: .72em; margin-left: 4px; color: #c8102e; }
+            </style>
     @endif
             </div>
 

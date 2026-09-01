@@ -359,6 +359,30 @@ class SnapshotController extends Controller
         $expoHistory = \App\Models\PortfolioSnapshot::whereNotNull('exposure')
             ->orderBy('snap_date')->get(['snap_date', 'exposure']);
 
+        // Latest price + daily change per fund (for the catalog table), from the
+        // fund_prices day grid. Keyed by canonical upper code.
+        $catPrices = [];
+        foreach (\App\Models\FundPrice::orderBy('period')->get() as $row) {
+            $code = \App\Models\Fund::canonicalCode(strtoupper((string) $row->code));
+            for ($d = 1; $d <= 31; $d++) {
+                $v = $row->{"d{$d}"};
+                if ($v !== null) {
+                    $catPrices[$code][] = [$row->period.'-'.str_pad((string) $d, 2, '0', STR_PAD_LEFT), (float) $v];
+                }
+            }
+        }
+        $catPrices = collect($catPrices)->map(function ($pts) {
+            $n = count($pts);
+            $last = $pts[$n - 1];
+            $prev = $n >= 2 ? $pts[$n - 2] : null;
+            return [
+                'date'  => $last[0],
+                'price' => $last[1],
+                'chg'   => $prev ? round($last[1] - $prev[1], 4) : null,
+                'pct'   => ($prev && $prev[1] != 0.0) ? round(($last[1] - $prev[1]) / $prev[1] * 100, 2) : null,
+            ];
+        })->all();
+
         // "Today" card — daily movers, cut-off clock, drift flags, checklist.
         $daily = app(\App\Services\DailyOverview::class)->build();
         $actions = \App\Models\ActionItem::orderBy('sort')->get();
@@ -378,7 +402,7 @@ class SnapshotController extends Controller
             'alerts', 'history', 'review', 'past', 'prsThisYear', 'prsXirr',
             'transactions', 'pending', 'backtest', 'attribution', 'reconcile',
             'prsHistory', 'prsTotals', 'expoHistory',
-            'featured', 'heldCodeSet', 'detailIdByCode', 'membership', 'daily', 'actions',
+            'featured', 'heldCodeSet', 'detailIdByCode', 'membership', 'daily', 'actions', 'catPrices',
         ));
     }
 
