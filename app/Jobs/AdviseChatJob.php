@@ -33,7 +33,10 @@ class AdviseChatJob implements ShouldQueue
         $history = $state['messages'] ?? [];
 
         try {
-            $planText = $advisor->toText($advisor->analyze());
+            $plan = $advisor->analyze();
+            $t1rows = app(\App\Services\ExpectedNav::class)->forHeld()['rows'];
+            $brief = app(\App\Services\AdvisorBrief::class)->build($plan, $t1rows, \App\Models\ActionItem::all());
+            $planText = app(\App\Services\AdvisorBrief::class)->toText($brief)."\n\nFULL DETAIL (reference only):\n".$advisor->toText($plan);
             $userMsg = end($history)['text'] ?? '';
 
             // Prior turns as readable transcript (the chat() context slot only
@@ -45,9 +48,9 @@ class AdviseChatJob implements ShouldQueue
 
             $question = "You are helping me understand suggestions about MY Public Mutual unit-trust portfolio. "
                 ."The real figures for MY funds are right here — use them, and never say numbers are unavailable.\n\n"
-                ."MY PORTFOLIO & THE SUGGESTIONS (real captured figures):\n".$planText."\n\n"
+                ."TODAY'S BRIEF + DETAIL (real captured figures):\n".$planText."\n\n"
                 .($convo !== '' ? "CONVERSATION SO FAR:\n".$convo."\n" : '')
-                ."ANSWER THIS in SIMPLE everyday English for someone with NO finance background — short, and NO "
+                ."ANSWER THIS in SIMPLE everyday English for someone with NO finance background — short, specific, and NEVER "."re-suggest anything marked ALREADY DONE. Say only what is new or directly answers the question; no "
                 ."jargon (never use words like beta, idiosyncratic, mean-reversion, volatility, alpha, drawdown, "
                 ."opportunity cost, correlation; explain in plain words instead). Use only the figures above; "
                 ."don't invent funds or numbers. It's information to weigh, not licensed advice.\n\n"

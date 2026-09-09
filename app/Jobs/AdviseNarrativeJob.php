@@ -32,18 +32,31 @@ class AdviseNarrativeJob implements ShouldQueue
     {
         try {
             $plan = $advisor->analyze();
-            $planText = $advisor->toText($plan);
+            $t1rows = app(\App\Services\ExpectedNav::class)->forHeld()['rows'];
+            $brief = app(\App\Services\AdvisorBrief::class)->build($plan, $t1rows, \App\Models\ActionItem::all());
+            $planText = app(\App\Services\AdvisorBrief::class)->toText($brief)."\n\nFULL DETAIL (reference only):\n".$advisor->toText($plan);
 
-            $question = "Below are automated screener suggestions for my Public Mutual unit-trust portfolio, "
-                ."each already backed by real fund numbers (3-year return, risk, category) and the real Public "
-                ."Mutual switch rules.\n\n"
-                ."Write a plain-English summary for a non-expert. FORMAT STRICTLY as 4–6 short bullet points, "
-                ."each on its own line starting with '- ', one idea per bullet, one or two sentences each, no jargon. "
-                ."Start each bullet with a bold lead word in **double asterisks** (e.g. **Concentration:**, **Cash:**, "
-                ."**Switch:**, **Diversify:**, **Timing:**). Keep numbers exactly as given — do NOT invent any numbers "
-                ."or funds. After the bullets add one final line starting with '- ' that reminds this is past-performance "
-                ."information, not licensed financial advice.\n\n"
-                ."SUGGESTIONS:\n".$planText;
+            $question = "You are my portfolio assistant. Below is TODAY'S BRIEF for my Public Mutual unit-trust book, "
+                ."already computed from real figures. Write me 4–6 short bullet lines, each starting with '- ' and a bold "
+                ."lead word in **double asterisks**.
+
+RULES — follow strictly:
+"
+                ."1. Lead with THE ONE THING NOW and why today (use the market/cut-off note if given).
+"
+                ."2. Then say only what CHANGED since last visit. If nothing changed, say so in one line and stop repeating.
+"
+                ."3. Never re-suggest anything under ALREADY DONE — acknowledge it in one clause at most.
+"
+                ."4. Plain everyday English, no jargon (no 'volatility', 'exposure', 'allocation', 'drawdown').
+"
+                ."5. Use only the numbers given; never invent. No generic advice, no filler, no repetition.
+"
+                ."6. One final short line noting this is information, not licensed advice. Nothing else.
+
+"
+                ."TODAY'S BRIEF:
+".$planText;
 
             $fund = ['name' => 'Whole portfolio', 'fund_type' => 'Portfolio', 'risk' => null];
             $text = trim($llm->chat($fund, [], [], $question));

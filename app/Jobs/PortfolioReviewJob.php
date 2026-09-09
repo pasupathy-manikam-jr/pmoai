@@ -104,6 +104,14 @@ class PortfolioReviewJob implements ShouldQueue
             ->map(fn ($s) => $s->snap_date->toDateString().' value '.number_format((float) $s->value, 0))
             ->implode("\n");
 
+        // Today's intelligent brief: the one thing, what changed, what's already
+        // done — so the memo says what's NEW instead of re-listing everything.
+        $advisor = app(\App\Services\PortfolioAdvisor::class);
+        $plan = $advisor->analyze();
+        $t1rows = app(\App\Services\ExpectedNav::class)->forHeld()['rows'];
+        $brief = app(\App\Services\AdvisorBrief::class)->build($plan, $t1rows, \App\Models\ActionItem::all());
+        $briefText = app(\App\Services\AdvisorBrief::class)->toText($brief);
+
         return <<<PROMPT
 You are a cautious Malaysian unit-trust portfolio reviewer. Below is the user's
 COMPLETE portfolio at Public Mutual (unit trusts + PRS retirement). Numbers are
@@ -160,17 +168,24 @@ ACTIVE PRICE TRIGGERS:
 PORTFOLIO VALUE HISTORY (daily captures):
 {$history}
 
-Write a memo with EXACTLY these sections, ~350 words total:
-- **Health check** — one paragraph: overall shape, what's working, what's not.
-- **Concentration risks** — name the top 2-3 with the numbers (fund % of total,
-  category/theme overlaps between funds).
-- **Conflicts & gaps** — where fund-level verdicts, triggers, and allocation
-  pull in different directions; what's missing (e.g. balanced layer).
-- **Market context (live)** — 2-4 sourced bullets on the dominant exposures.
-- **Action list** — numbered, most-important first, each one concrete
-  (fund, amount range, direction) and consistent with the user's stated
-  buy-low philosophy and the active triggers. Include what to do with cash.
-- **Review again when** — 2-3 concrete conditions.
+TODAY'S BRIEF (already computed from the numbers above — this is the spine of the memo):
+{$briefText}
+
+Write a SHORT memo, ~220 words, with EXACTLY these sections. Do not pad. Do not
+repeat the portfolio table back. Say what is NEW and what to DO, nothing generic:
+- **What matters now** — THE ONE THING from the brief, in 2-3 plain sentences:
+  fund, the RM amount, and why today (use the market / 4 PM note if given).
+- **Since the last review** — only what CHANGED. If the brief says nothing
+  changed, write exactly one line saying so and move on. Never re-describe the
+  whole book.
+- **Already handled** — one clause per ALREADY DONE item, acknowledging it.
+  NEVER suggest these again in any form.
+- **Still open** — only the STILL OPEN items, numbered, each concrete (fund,
+  amount, direction, and whether the switch is free or paid). Nothing that is
+  done, nothing extra.
+- **Market context (live)** — 2-3 sourced bullets ONLY on markets behind the
+  open items (not a general market tour).
+- **Look again when** — 2 concrete conditions.
 PROMPT;
     }
 

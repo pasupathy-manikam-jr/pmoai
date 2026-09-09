@@ -412,7 +412,7 @@
                 $y0 = $cy(0);
             @endphp
             <details class="fd-card fd-span">
-                <summary class="fd-card-sum">Calendar-year returns vs benchmark</summary>
+                <summary class="fd-card-sum">Each year: fund vs its target</summary>
                 <p class="fd-sub">{{ $factsheet->period }} factsheet · hover bars for values</p>
                 <div class="chart-wrap">
                     <svg viewBox="0 0 {{ $cW }} {{ $cH }}" class="price-chart" role="img"
@@ -491,7 +491,7 @@
 
             @if ($factsheet->benchmark_returns)
                 <details class="fd-card">
-                    <summary class="fd-card-sum">Fund vs benchmark (%)</summary>
+                    <summary class="fd-card-sum">Fund vs its target (%)</summary>
                     <table>
                         <tr><th>Horizon</th><th>Fund</th><th>Bench</th><th>Fund ann.</th><th>Bench ann.</th></tr>
                         @foreach ($factsheet->benchmark_returns as $key => $r)
@@ -509,7 +509,7 @@
 
             @if ($factsheet->asset_allocation)
                 <details class="fd-card">
-                    <summary class="fd-card-sum">Asset allocation</summary>
+                    <summary class="fd-card-sum">What it's invested in</summary>
                     <table class="kv">
                         @foreach ($factsheet->asset_allocation as $type => $pct)
                             <tr><th class="w-auto">{{ $type }}</th><td>{{ $pct }}%</td></tr>
@@ -520,7 +520,7 @@
 
             @if ($factsheet->fx_exposure)
                 <details class="fd-card">
-                    <summary class="fd-card-sum">FX exposure</summary>
+                    <summary class="fd-card-sum">Foreign currency</summary>
                     <table class="kv">
                         @foreach ($factsheet->fx_exposure as $ccy => $pct)
                             <tr><th class="w-auto">{{ $ccy }}</th><td>{{ $pct }}%</td></tr>
@@ -531,7 +531,7 @@
 
             @if ($factsheet->geo_foreign)
                 <details class="fd-card">
-                    <summary class="fd-card-sum">Geography (foreign)</summary>
+                    <summary class="fd-card-sum">Which countries</summary>
                     <table class="kv">
                         @foreach ($factsheet->geo_foreign as $country => $pct)
                             <tr><th class="w-auto">{{ $country }}</th><td>{{ $pct }}%</td></tr>
@@ -542,7 +542,7 @@
 
             @if ($factsheet->top_sectors)
                 <details class="fd-card">
-                    <summary class="fd-card-sum">Top sectors</summary>
+                    <summary class="fd-card-sum">Main industries</summary>
                     <table class="kv">
                         @foreach ($factsheet->top_sectors as $sector => $pct)
                             <tr><th class="w-auto">{{ $sector }}</th><td>{{ $pct }}%</td></tr>
@@ -553,7 +553,7 @@
 
             @if ($factsheet->top_holdings)
                 <details class="fd-card">
-                    <summary class="fd-card-sum">Top holdings</summary>
+                    <summary class="fd-card-sum">Biggest holdings</summary>
                     <ol class="fd-holdings">
                         @foreach ($factsheet->top_holdings as $h)
                             <li>{{ $h }}</li>
@@ -564,7 +564,7 @@
 
             @if ($factsheet->distributions)
                 <details class="fd-card">
-                    <summary class="fd-card-sum">Distributions</summary>
+                    <summary class="fd-card-sum">Payouts</summary>
                     <table>
                         <tr><th>Period</th><th>Sen</th><th>Date</th><th>Yield %</th></tr>
                         @foreach ($factsheet->distributions as $d)
@@ -587,7 +587,7 @@
                     $benchPct = $cal['bench_pct'] ?? [];
                 @endphp
                 <details class="fd-card">
-                    <summary class="fd-card-sum">Calendar returns table (%)</summary>
+                    <summary class="fd-card-sum">Returns by year (%)</summary>
                     <table>
                         <tr><th>Year</th>@foreach ($years as $y)<th>{{ $y }}</th>@endforeach</tr>
                         <tr>
@@ -637,7 +637,7 @@
 
     @if ($hasCaptured)
         <details class="fd-fold">
-            <summary>Captured PMO detail-page data</summary>
+            <summary>Raw data from Public Mutual's page</summary>
 
             @if (!empty($p['fields']))
                 <h2>Fund facts</h2>

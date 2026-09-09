@@ -55,14 +55,29 @@ class Fund extends Model
      * month into two rows (e-Series codes are mixed case). Returns the input
      * unchanged when the code is not in the catalog. Memoized per process.
      */
+    /** Upper-case → catalogue-cased code map; rebuilt lazily, dropped on any Fund write. */
+    private static ?array $canonicalMap = null;
+
     public static function canonicalCode(string $code): string
     {
-        static $map = null;
-        if ($map === null) {
-            $map = static::whereNotNull('code')->pluck('code')
+        if (self::$canonicalMap === null) {
+            self::$canonicalMap = static::whereNotNull('code')->pluck('code')
                 ->mapWithKeys(fn ($c) => [strtoupper($c) => $c])->all();
         }
 
-        return $map[strtoupper($code)] ?? $code;
+        return self::$canonicalMap[strtoupper($code)] ?? $code;
+    }
+
+    public static function resetCanonicalCache(): void
+    {
+        self::$canonicalMap = null;
+    }
+
+    protected static function booted(): void
+    {
+        // Any change to the catalogue invalidates the code map (long-running
+        // workers and tests both create funds after the first lookup).
+        static::saved(fn () => self::resetCanonicalCache());
+        static::deleted(fn () => self::resetCanonicalCache());
     }
 }

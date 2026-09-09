@@ -5,7 +5,7 @@
 
 @section('content')
     <div class="rb-page">
-        <h1>Rebalance simulator</h1>
+        <h1>Plan a rebalance</h1>
         <p class="rb-lead">Type the % you want each fund to be, then <strong>Compute plan</strong>. You get the exact switches to get there and the fee cost. (Same-series switches are free after 90 days; gold, cross-series and cash→equity charge a fee.)</p>
 
         @php $total = $held->sum('value'); @endphp
@@ -189,13 +189,13 @@
             if (!moves.length) {
                 html += '<p class="rb-note">No moves needed — targets match current allocation.</p>';
             } else {
-                html += '<table><thead><tr><th>Move</th><th>From → To</th><th class="r">Amount</th><th class="r">Charge</th></tr></thead><tbody>';
+                html += '<table><thead><tr><th>Move</th><th>From → To</th><th class="r">Amount</th><th class="r">Fee</th></tr></thead><tbody>';
                 moves.forEach(function (m) {
                     html += '<tr><td>' + m.type + '</td><td>' + shortN(m.from.name) + ' → ' + shortN(m.to.name) + '</td>'
                         + '<td class="r">' + fmt(m.amt) + '</td>'
                         + '<td class="r ' + (m.cost > 0 ? 'neg' : 'pos') + '">' + (m.cost > 0 ? fmt(m.cost) + ' (' + m.pct + '%)' : 'free') + '</td></tr>';
                 });
-                html += '</tbody><tfoot><tr class="rb-total"><th colspan="2">Total sales charge to rebalance</th><th class="r"></th>'
+                html += '</tbody><tfoot><tr class="rb-total"><th colspan="2">Total fee for these moves</th><th class="r"></th>'
                     + '<th class="r ' + (totalCost > 0 ? 'neg' : 'pos') + '">' + (totalCost > 0 ? fmt(totalCost) : 'RM 0') + '</th></tr></tfoot></table>';
                 html += '<p class="rb-note">' + fmt(totalCost) + ' = ' + (totalCost / TOTAL * 100).toFixed(2) + '% of your book, paid once. Same-series switches are free.</p>';
             }

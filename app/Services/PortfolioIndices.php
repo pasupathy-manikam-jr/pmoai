@@ -39,6 +39,29 @@ class PortfolioIndices
 
     private const MAX_COUNTRY_INDICES = 6;
 
+    /** Yahoo symbol for a captured country name (upper), incl. home MALAYSIA → KLCI. */
+    public static function symbolFor(string $country): ?string
+    {
+        $c = strtoupper(trim($country));
+        if ($c === 'MALAYSIA') {
+            return '^KLSE';
+        }
+
+        return self::MAP[$c][0] ?? null;
+    }
+
+    /** Human label for a symbol (from MAP; KLCI/gold/FX handled by callers). */
+    public static function labelFor(string $symbol): string
+    {
+        foreach (self::MAP as [$sym, , $label]) {
+            if ($sym === $symbol) {
+                return $label;
+            }
+        }
+
+        return ['^KLSE' => 'FBM KLCI', 'GC=F' => 'Gold', 'MYR=X' => 'USD/MYR'][$symbol] ?? $symbol;
+    }
+
     /**
      * @return array<int, array{symbol:string,label:string,tag:string,tv:string}>
      */

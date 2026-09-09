@@ -5,9 +5,57 @@
 
 @section('content')
     <div class="adv">
-        <h1>What to consider now</h1>
-        <p class="adv-lead">Ideas from screening all <b>{{ $plan['catalog_count'] }}</b> Public Mutual funds on their real numbers (3-year return per unit of risk) against your <b>{{ $plan['held_count'] }}</b> holdings and the real switch rules. Book: RM {{ number_format($plan['book'], 0) }}.</p>
-        <p class="adv-warn">⚠ Informational only — not licensed financial advice. These are screens on past performance, which does not predict the future. You decide.</p>
+        <h1>Advisor</h1>
+        <div class="brief">
+            @if ($brief['headline'])
+                <div class="brief-head">
+                    <span class="brief-eyebrow">The one thing to consider now</span>
+                    <div class="brief-line"><span class="board-act act-{{ \Illuminate\Support\Str::slug($brief['headline']['action']) }}">{{ $brief['headline']['action'] }}</span> <b>{{ $brief['headline']['fund'] }}</b> <span class="brief-stake">RM {{ number_format($brief['headline']['stake'], 0) }} at stake</span></div>
+                    <p class="brief-text">{{ $brief['headline']['text'] }}</p>
+                </div>
+            @else
+                <div class="brief-head brief-calm"><span class="brief-eyebrow">Right now</span><p class="brief-text">Nothing urgent. Your book is in reasonable shape — no fund is over the ceiling, no idle cash pile, nothing clearly beaten. Check back after the next capture.</p></div>
+            @endif
+
+            <div class="brief-cols">
+                <div class="brief-col">
+                    <span class="brief-eyebrow">Since last visit @if ($brief['last_seen'])<small>({{ $brief['last_seen']->diffForHumans() }})</small>@endif</span>
+                    @if ($brief['changes']['first'])
+                        <p class="brief-muted">First visit — I'll track what changes from here.</p>
+                    @elseif (! $brief['changes']['any'])
+                        <p class="brief-muted">No change — same picture as last time. Nothing new to act on.</p>
+                    @else
+                        <ul class="brief-list">
+                            @foreach ($brief['changes']['new'] as $c)<li class="c-new">🆕 {{ $c }}</li>@endforeach
+                            @foreach ($brief['changes']['changed'] as $c)<li class="c-chg">↻ {{ $c }}</li>@endforeach
+                            @foreach ($brief['changes']['resolved'] as $c)<li class="c-res">✓ {{ $c }}</li>@endforeach
+                        </ul>
+                    @endif
+                </div>
+                <div class="brief-col">
+                    <span class="brief-eyebrow">Already done</span>
+                    @if ($brief['done'])
+                        <ul class="brief-list">
+                            @foreach ($brief['done'] as $d)<li class="c-done">✓ <b>{{ $d['short'] }}</b> — {{ $d['done'] }}</li>@endforeach
+                        </ul>
+                    @else
+                        <p class="brief-muted">Nothing acted on yet.</p>
+                    @endif
+                </div>
+                <div class="brief-col">
+                    <span class="brief-eyebrow">Still open</span>
+                    @if ($brief['remaining'])
+                        <ul class="brief-list">
+                            @foreach ($brief['remaining'] as $r)<li><span class="board-act act-{{ \Illuminate\Support\Str::slug($r['action']) }}">{{ $r['action'] }}</span> {{ $r['short'] }} <small>RM {{ number_format($r['stake'], 0) }}</small></li>@endforeach
+                        </ul>
+                    @else
+                        <p class="brief-muted">Nothing open.</p>
+                    @endif
+                    <p class="brief-muted">{{ $brief['holds'] }} other funds are fine — leave them.</p>
+                </div>
+            </div>
+            <p class="brief-foot">Screened on Public Mutual's own numbers + your real transactions. Not licensed advice.</p>
+        </div>
 
         <div id="ai" class="adv-ai">
             <div class="adv-ai-top">
@@ -90,12 +138,12 @@
         {{-- ACTION BOARD — one clear call per held fund ---------------- --}}
         @if (! empty($plan['board']))
             <section class="adv-grp">
-                <h2>Your funds — one call each</h2>
-                <p class="adv-sub">The single thing to consider per fund, sorted so what needs attention is on top. <b>This app only plans</b> — "Plan" sets the move up here; you place the actual switch/redeem/top-up in your Public Mutual account. <b>Alert me</b> arms a price trigger so you act at a better moment (fires on the next price capture).</p>
+                <h2>Your funds — what to do with each</h2>
+                <p class="adv-sub">One clear suggestion per fund, most urgent first. <b>This app only plans</b> — "Plan" sets the move up here; you place the actual switch/redeem/top-up in your Public Mutual account. <b>Alert me</b> arms a price trigger so you act at a better moment (fires on the next price capture).</p>
                 @if (session('status'))<p class="adv-flash">✓ {{ session('status') }}</p>@endif
                 <table class="board">
                     <thead>
-                        <tr><th>Do</th><th>Fund</th><th class="r">Weight</th><th class="r">3Y</th><th>Risk</th><th>Timing now</th><th>Why</th><th>Act</th><th>Alert me</th></tr>
+                        <tr><th>Do</th><th>Fund</th><th class="r">Share of my money</th><th class="r">3-yr return</th><th>Risk</th><th>Good time to add?</th><th>Tomorrow ≈</th><th>Why</th><th>Plan</th><th>Alert me</th></tr>
                     </thead>
                     <tbody>
                         @foreach ($plan['board'] as $r)
@@ -119,9 +167,18 @@
                                 <td>{{ $r['risk'] }}</td>
                                 <td>
                                     @if ($r['score'] !== null)
-                                        <span class="board-score sc-{{ $r['band'] }}" title="{{ $r['entry'] }} · {{ implode(', ', $r['factors']) }}">{{ $r['score'] }} · {{ $r['band'] }}</span>
+                                        <span class="board-score sc-{{ $r['band'] }}" title="{{ $r['entry'] }} · {{ implode(', ', $r['factors']) }}">{{ $r['score'] }} · {{ ['favourable' => 'good time', 'neutral' => 'so-so', 'poor' => 'bad time'][$r['band']] ?? $r['band'] }}</span>
                                     @else
                                         <span class="board-score sc-none">—</span>
+                                    @endif
+                                </td>
+                                @php $x = $t1[(string) \Illuminate\Support\Str::of($r['name'])->after('PUBLIC ')] ?? null; @endphp
+                                <td class="board-t1">
+                                    @if ($x && $x['usable'])
+                                        <span class="{{ $x['expected_pct'] >= 0 ? 'pos' : 'neg' }}" title="{{ $x['drivers'][0]['label'] ?? '' }} {{ isset($x['drivers'][0]) ? number_format($x['drivers'][0]['chg'], 2).'%' : '' }} · because markets moved today">{{ $x['expected_pct'] >= 0 ? '+' : '' }}{{ number_format($x['expected_pct'], 2) }}%</span>
+                                        <small>{{ $x['expected_rm'] >= 0 ? '+' : '−' }}RM{{ number_format(abs($x['expected_rm']), 0) }}</small>
+                                    @else
+                                        <span class="board-na">—</span>
                                     @endif
                                 </td>
                                 <td class="board-why">{{ $r['why'] }}</td>
@@ -200,7 +257,7 @@
         {{-- SWITCH ------------------------------------------------------ --}}
         @if ($plan['switch'])
             <section class="adv-grp">
-                <h2><span class="adv-tag t-switch">SWITCH</span> A better fund in the same category</h2>
+                <h2><span class="adv-tag t-switch">SWITCH</span> A better fund of the same type</h2>
                 @foreach ($plan['switch'] as $s)
                     <div class="adv-card" id="switch-{{ \Illuminate\Support\Str::slug($s['from']) }}">
                         <div class="adv-head">{!! \App\Support\FundLink::to($s['from']) !!} → {!! \App\Support\FundLink::to($s['to']) !!}</div>
@@ -226,7 +283,7 @@
                         <div class="adv-head">{!! \App\Support\FundLink::to($d['from']) !!} <span class="adv-badge">RM {{ number_format($d['amount'], 0) }} idle</span></div>
                         <p class="adv-why">{{ $d['why'] }}</p>
                         <table class="adv-opts">
-                            <tr><th>Options across the risk ladder (same series)</th><th class="r">3Y</th><th class="r">Risk</th><th class="r">Entry now</th><th class="r">Sales charge</th></tr>
+                            <tr><th>Options, safest to riskiest</th><th class="r">3Y</th><th class="r">Risk</th><th class="r">Price now: high or low?</th><th class="r">Fee to buy</th></tr>
                             @foreach ($d['options'] as $o)
                                 <tr>
                                     <td><span class="adv-tier tier-{{ strtolower($o['tier']) }}">{{ $o['tier'] }}</span> {!! \App\Support\FundLink::to($o['name']) !!}</td>
@@ -239,9 +296,9 @@
                         </table>
 
                         @if (! empty($d['by_entry']))
-                            <p class="adv-subh">Not at a high — same-series options, best entry first</p>
+                            <p class="adv-subh">Funds not at a high right now — best-priced first</p>
                             <table class="adv-opts">
-                                <tr><th>Fund</th><th class="r">In its 6-mo range</th><th class="r">Type</th><th class="r">Risk</th><th class="r">3Y</th><th class="r">Sales charge</th></tr>
+                                <tr><th>Fund</th><th class="r">Where the price sits (low → high)</th><th class="r">Type</th><th class="r">Risk</th><th class="r">3Y</th><th class="r">Fee to buy</th></tr>
                                 @foreach ($d['by_entry'] as $o)
                                     <tr>
                                         <td>{!! \App\Support\FundLink::to($o['name']) !!}</td>
@@ -263,13 +320,13 @@
         {{-- BUY --------------------------------------------------------- --}}
         @if ($plan['buy'])
             <section class="adv-grp">
-                <h2><span class="adv-tag t-buy">DIVERSIFY</span> A category you barely hold</h2>
+                <h2><span class="adv-tag t-buy">SPREAD OUT</span> A type of fund you barely have</h2>
                 @foreach ($plan['buy'] as $b)
                     <div class="adv-card">
                         <div class="adv-head">{{ $b['category'] }} <span class="adv-badge">you have {{ $b['have_pct'] }}%</span></div>
                         <p class="adv-why">{{ $b['why'] }}</p>
                         <table class="adv-opts">
-                            <tr><th>Strongest in this category</th><th class="r">3Y</th><th class="r">Risk</th><th class="r">Sales charge</th></tr>
+                            <tr><th>Best funds of this type</th><th class="r">3Y</th><th class="r">Risk</th><th class="r">Fee to buy</th></tr>
                             @foreach ($b['options'] as $o)
                                 <tr>
                                     <td>{!! \App\Support\FundLink::to($o['name']) !!}@if ($o['is_e']) <span class="adv-e">e</span>@endif</td>
@@ -289,6 +346,20 @@
 
     <style>
         .adv { max-width: none; }
+        .brief { border: 1px solid #e3e6f0; border-radius: 16px; background: linear-gradient(180deg, #fbfbfd, #fff); padding: 18px 20px; margin: 0 0 18px; box-shadow: 0 2px 10px rgba(20,24,40,.05); }
+        .brief-eyebrow { display: block; font: 600 .62rem 'IBM Plex Mono', monospace; letter-spacing: .14em; text-transform: uppercase; color: #9a968b; margin-bottom: 6px; }
+        .brief-eyebrow small { text-transform: none; letter-spacing: 0; color: #b6b2a8; }
+        .brief-line { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; font: 800 1.15rem 'Archivo', sans-serif; color: #16181d; }
+        .brief-stake { font: 600 .8rem 'IBM Plex Mono', monospace; color: #c8102e; background: #fdecea; padding: 3px 8px; border-radius: 6px; }
+        .brief-text { font-size: 14px; line-height: 1.6; color: #2a2d34; margin: 8px 0 0; max-width: 78ch; }
+        .brief-calm .brief-text { color: #1a7f5a; }
+        .brief-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 16px; padding-top: 14px; border-top: 1px solid #eef0f5; }
+        .brief-list { list-style: none; margin: 0; padding: 0; font-size: 12.5px; line-height: 1.5; }
+        .brief-list li { padding: 3px 0; } .brief-list li small { color: #9a968b; }
+        .c-new { color: #2a6fc9; } .c-chg { color: #8a6a00; } .c-res, .c-done { color: #1a7f5a; }
+        .brief-muted { font-size: 12px; color: #9a968b; margin: 0; }
+        .brief-foot { font-size: 11px; color: #b6b2a8; margin: 12px 0 0; }
+        @media (max-width: 760px) { .brief-cols { grid-template-columns: 1fr; } }
         .adv-lead { color: #555; font-size: 13px; line-height: 1.5; margin: 0 0 8px; }
         .adv-warn { background: #fdf3e7; color: #8a6a00; font-size: 12px; padding: 8px 11px; border-radius: 6px; margin: 0 0 18px; }
         .adv-none { background: #eef7f0; color: #1a7f5a; padding: 12px 14px; border-radius: 8px; }
@@ -325,6 +396,7 @@
         .sw-badge { display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 4px; margin-top: 3px; cursor: help; }
         .sw-free { background: #e8f4ee; color: #1a7f5a; } .sw-wait { background: #fdf3e7; color: #8a6a00; } .sw-none { background: #f2f2f2; color: #999; cursor: default; }
         .board-why { color: #555; line-height: 1.45; min-width: 260px; }
+        .board-t1 { white-space: nowrap; font-variant-numeric: tabular-nums; } .board-t1 small { display: block; color: #9a968b; font-size: 10.5px; }
         .board-act { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .03em; color: #fff; padding: 3px 8px; border-radius: 5px; white-space: nowrap; }
         .act-trim { background: #c0392b; } .act-switch { background: #2a6fc9; } .act-redeem { background: #7d1f13; }
         .act-top-up { background: #1a7f5a; } .act-deploy { background: #b8860b; } .act-hold { background: #98a0aa; }

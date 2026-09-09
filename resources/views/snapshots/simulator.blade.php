@@ -10,13 +10,13 @@
 @endpush
 
 @section('content')
-    <p class="ps-eyebrow">What-if simulator</p>
+    <p class="ps-eyebrow">Try a switch before you do it</p>
     @if ($portfolio->isEmpty())
         <p>No holdings tracked yet — capture your holdings from PMO first.</p>
     @else
         <section class="ps-card" id="whatif">
-            <h2>What-if simulator</h2>
-            <p class="ps-sub" style="margin:0 0 10px">Model a switch before you make it — fee cost, new weights, and how the moved money compounds in each fund at its own 5-year rate.</p>
+            <h2>Try a switch before you do it</h2>
+            <p class="ps-sub" style="margin:0 0 10px">See what a switch would cost, how your money would be spread afterwards, and how it might grow in each fund — before you actually do it.</p>
             <div class="wi-form">
                 <label>
                     <span>From</span>
@@ -315,7 +315,7 @@
                           + ' — direct switch NOT allowed. This models redeem-to-cash + fresh purchase (destination sales charge applies; days out of market not modelled).</td></tr>'
                         : '')
                     + '<tr><th>Move</th><td>' + fmt(amt) + (fromHeld ? ' from ' + fromHeld.name : ' new money') + ' → ' + to.name + '</td></tr>'
-                    + '<tr><th>Charge</th><td>' + (fee > 0 ? fmt(fee, 2) + ' (' + feePct + '%) — ' + fmt(net, 2) + ' actually invested' : 'none') + '</td></tr>'
+                    + '<tr><th>Fee</th><td>' + (fee > 0 ? fmt(fee, 2) + ' (' + feePct + '%) — ' + fmt(net, 2) + ' actually invested' : 'none') + '</td></tr>'
                     + (plFrom ? '<tr><th>' + fromHeld.name.split(' ').slice(0, 3).join(' ') + ' P/L</th><td>' + plFrom + '</td></tr>' : '')
                     + (realize != null ? '<tr><th>Realizes on ' + fmt(amt) + '</th><td class="' + (realize >= 0 ? 'pos' : 'neg') + '">'
                         + (realize >= 0 ? '+' : '') + fmt(realize) + ' ' + (realize >= 0 ? 'gain locked in' : 'loss crystallized') + ' (paper → real)</td></tr>' : '')
@@ -329,10 +329,10 @@
                         var vf = function (f) { return f && f.vf != null ? f.vf.toFixed(1) + (f.vclass ? ' (' + f.vclass + ')' : '') : '—'; };
                         var sf = fromFund || (srcIsCash ? { vf: 0, vclass: 'cash' } : null);
                         var moreRisk = fromFund && fromFund.vf != null && to.vf != null && to.vf > fromFund.vf;
-                        return '<tr><th>Risk (volatility)</th><td class="' + (moreRisk ? 'neg' : '') + '">'
+                        return '<tr><th>How much it swings</th><td class="' + (moreRisk ? 'neg' : '') + '">'
                             + vf(sf) + ' → ' + vf(to)
                             + (moreRisk ? ' ⚠ moving to a MORE volatile fund' : '')
-                            + '<br><span class="ps-sub">higher volatility factor = bigger swings; from latest QFR factsheet</span></td></tr>';
+                            + '<br><span class="ps-sub">higher number = bigger price swings (from the fund's own factsheet)</span></td></tr>';
                     })()
                     + '</table>'
                     + '<table><tr><th></th><th>If it stays</th><th>If it moves</th><th>Difference</th>'

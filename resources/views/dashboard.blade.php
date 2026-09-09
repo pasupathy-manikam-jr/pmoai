@@ -4,7 +4,7 @@
 @section('body-class', 'page-dashboard')
 
 @section('content')
-    <h1>Market indices</h1>
+    <h1>Markets my funds depend on</h1>
     @php
         // Indices derived from the portfolio's real geographic exposure
         // (each fund's captured geographical breakdown, weighted by value).
@@ -31,7 +31,7 @@
             @endif
         </p>
     @endif
-    <p class="idx-intro">Indices matched to where your money actually sits (from each fund's geographical breakdown). Live quotes (Yahoo) above each chart.
+    <p class="idx-intro">The stock markets, gold and currency your funds actually invest in — with live prices above each chart. Worked out from where each fund puts its money.
         @if ($lastFetch)Updated {{ $lastFetch->diffForHumans() }}.@else No quotes yet.@endif
         The chart below is TradingView (may lag for some Asian exchanges).
         <form method="POST" action="{{ route('quotes.fetch') }}" style="display:inline">

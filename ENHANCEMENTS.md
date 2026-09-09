@@ -227,6 +227,51 @@ REDEEM. Everything stays grounded in captured numbers + real PMO rules.
 
 ---
 
+## Phase 12 — market-aware intelligence (use the data you already collect) 🚧
+
+Today the advisor is good at hygiene but backward-looking: it ranks on 3-year
+return ÷ risk and never uses the live index data the dashboard collects. This
+phase turns that data into *timing* and *risk* signals — all arithmetic on PMO's
+own figures + PMO's own pricing rules. No forecasts, no external tips.
+
+**Tier 1 — use the market data (highest value)**
+- ✅ **Expected NAV move (the T+1 edge).** PMO prices foreign funds at the NEXT
+  valuation point, reflecting overseas moves that already happened. Fund geo
+  weights × today's index moves (+ USD/MYR on the foreign share) → expected %
+  and RM at the next price, per held fund, against the 4 PM cut-off clock.
+  "NASDAQ −2.1% overnight → e-AI ≈ −1.5% tomorrow; selling before 4 PM gets
+  today's price." Grounded in captured geo + live quotes + forward pricing.
+- **Fund trend regime** — 20/60-day MA crossover on `fund_prices` → uptrend /
+  downtrend / turning. Replaces the 5-day guess.
+- **Multi-horizon momentum** — 1M/3M/6M/1Y from `fund_prices`, ranked within
+  category; catches winners before they show in a 3Y number.
+- **Market regime per index** — range position + trend for each dashboard index
+  ("US tech at 6-mo high, Indonesia at low") feeding DEPLOY/SWITCH timing.
+
+**Tier 2 — real risk**
+- **Volatility-weighted concentration** — factsheet volatility factor × weight =
+  risk contribution; a Very-High 30% ≠ a bond 30%.
+- **Fund-to-fund correlation** from daily NAVs → "these 3 move 0.9 together —
+  one bet, not three."
+- **Drawdown guard** — per-fund + portfolio drawdown from peak, threshold alerts.
+
+**Tier 3 — execution (PMO mechanics)**
+- **Switch cost optimizer** — load (if <90d / cross-series) + T+1 price risk →
+  "wait N days, save RM X" vs "move now."
+- **DCA tranche planner** — turn "stagger the cash" into a dated schedule with
+  auto-armed dip triggers.
+- **Ex-date awareness** — capture distribution ex-dates; don't buy right before.
+
+**Tier 4 — prove it**
+- **Screener backtest** — replay the rules over historical `fund_prices`; hit
+  rate per rule; weight advice by it.
+- **Paper-trade ledger** — log every suggestion with date + price vs doing nothing.
+
+_Data prerequisites:_ daily `fund_prices` discipline (scheduled fetch + auto-
+collect), factsheet geo for candidate funds, distribution ex-dates.
+
+---
+
 ## Beyond (explicitly NOT core — only if you ask)
 
 These leave strict PMO grounding, so they sit outside the roadmap unless wanted:

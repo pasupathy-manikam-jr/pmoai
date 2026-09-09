@@ -218,7 +218,7 @@
                     <p class="ps-sub">No transactions recorded yet. Download a Statement of Transaction PDF from PMO and run <code>pmoai:ingest-stmt</code> (or drop it in Downloads and ask).</p>
                 @else
                     <table class="pt-table">
-                        <tr><th>Date</th><th>Fund</th><th>Type</th><th>Account</th><th>Gross</th><th>Charge</th><th>Net</th><th>Price</th><th>Units</th></tr>
+                        <tr><th>Date</th><th>Fund</th><th>Type</th><th>Account</th><th>Before fees</th><th>Fee</th><th>After fees</th><th>Price</th><th>Units</th></tr>
                         @foreach ($transactions as $t)
                             @php $inflow = (float) $t['units'] >= 0; @endphp
                             <tr>
@@ -287,9 +287,9 @@
 
             @if ($backtest->isNotEmpty())
                 @php $hits = $backtest->whereNotNull('correct')->where('correct', true)->count(); $scored = $backtest->whereNotNull('correct')->count(); @endphp
-                <h3 style="margin:18px 0 4px">Verdict scorecard <small style="font-weight:400;color:#888">— did past calls move the right way? {{ $hits }}/{{ $scored }} right</small></h3>
+                <h3 style="margin:18px 0 4px">Did the AI's calls work? <small style="font-weight:400;color:#888">— did past calls move the right way? {{ $hits }}/{{ $scored }} right</small></h3>
                 <table class="pt-table">
-                    <tr><th>Fund</th><th>Call</th><th>On</th><th>Price then → now</th><th>Since</th><th>Call worked?</th></tr>
+                    <tr><th>Fund</th><th>AI said</th><th>On</th><th>Price then → now</th><th>Since</th><th>Was it right?</th></tr>
                     @foreach ($backtest as $b)
                         <tr>
                             <td>{{ \Illuminate\Support\Str::of($b['name'])->after('PUBLIC ') }}</td>
@@ -306,7 +306,7 @@
                         </tr>
                     @endforeach
                 </table>
-                <p class="ps-sub">A "keep/buy" call is right if the price rose since; "sell/reduce" is right if it fell. Directional only — measures whether the call read the move, not the size. Re-analyze a fund to refresh its call.</p>
+                <p class="ps-sub">A "keep/buy" call counts as right if the price went up afterwards; a "sell/reduce" call if it went down. Direction only — not how much.</p>
             @endif
             </div>
 
@@ -428,6 +428,32 @@
                 </div>
             @endif
 
+            @php $t1rows = collect($expected['rows'])->where('usable', true)->take(6); @endphp
+            @if ($t1rows->isNotEmpty())
+                <div class="today-t1">
+                    <div class="today-t1-h">
+                        <span class="today-lbl">Tomorrow's price, roughly</span>
+                        <b class="{{ $expected['total_rm'] >= 0 ? 'up' : 'down' }}">{{ $expected['total_rm'] >= 0 ? '▲ +' : '▼ −' }}RM {{ number_format(abs($expected['total_rm']), 0) }}</b>
+                        <small>because of what markets did today · market data {{ $expected['as_of'] ? \Illuminate\Support\Carbon::parse($expected['as_of'])->diffForHumans() : '—' }}</small>
+                    </div>
+                    @foreach ($t1rows as $r)
+                        @php $top = $r['drivers'][0] ?? null; @endphp
+                        <div class="t1-row">
+                            <span class="t1-name">{{ $r['name'] }}</span>
+                            <b class="{{ $r['expected_pct'] >= 0 ? 'up' : 'down' }}">{{ $r['expected_pct'] >= 0 ? '+' : '' }}{{ number_format($r['expected_pct'], 2) }}%</b>
+                            <i class="{{ $r['expected_rm'] >= 0 ? 'up' : 'down' }}">{{ $r['expected_rm'] >= 0 ? '+' : '−' }}RM{{ number_format(abs($r['expected_rm']), 0) }}</i>
+                            <small>@if ($top)because {{ $top['label'] }} went {{ $top['chg'] >= 0 ? 'up' : 'down' }} {{ number_format(abs($top['chg']), 1) }}%@endif @if ($r['stale']) · <span title="some market data is old: {{ implode(', ', $r['stale']) }}">(some data old)</span>@endif</small>
+                        </div>
+                    @endforeach
+                    <p class="t1-rule">
+                        <b>How to use this:</b> buy or sell <b>before 4 PM</b> and you get <b>today's</b> price. So —
+                        fund going <span class="down">down</span> tomorrow and you want out? <b>Sell today.</b>
+                        Fund going <span class="up">up</span> tomorrow and you want in? <b>Buy today.</b>
+                        <br><small>A rough estimate from where your funds invest × today's market moves. Not a guarantee.</small>
+                    </p>
+                </div>
+            @endif
+
             <p class="today-ctx">{{ $daily['context'] }}</p>
 
             <div class="today-todo">
@@ -477,6 +503,18 @@
             .today-flags { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 0; }
             .today-flag { font-size: 11.5px; color: #8a6a00; background: #fdf3e7; border: 1px solid #f3e6cf; padding: 4px 9px; border-radius: 7px; }
             .today-ctx { font-size: 12.5px; color: #667; margin: 12px 0 0; line-height: 1.5; }
+            .today-t1 { margin-top: 14px; padding: 12px 14px; border-radius: 12px; background: #f6f7fb; border: 1px solid #e3e6f0; }
+            .today-t1-h { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+            .today-t1-h b { font: 800 1.15rem 'Archivo', sans-serif; font-variant-numeric: tabular-nums; }
+            .today-t1-h b.up { color: #0e7a46; } .today-t1-h b.down { color: #bb2018; }
+            .today-t1-h small { color: #9a968b; font-size: 11px; }
+            .t1-row { display: grid; grid-template-columns: 1fr auto auto minmax(140px, auto); gap: 10px; align-items: baseline; font-size: 12.5px; padding: 4px 0; border-bottom: 1px solid #ebedf4; }
+            .t1-row:last-of-type { border-bottom: 0; }
+            .t1-row b { font-variant-numeric: tabular-nums; } .t1-row i { font-style: normal; font-variant-numeric: tabular-nums; min-width: 70px; text-align: right; }
+            .t1-row .up { color: #0e7a46; } .t1-row .down { color: #bb2018; }
+            .t1-row small { color: #9a968b; font-size: 11px; text-align: right; }
+            .t1-rule { font-size: 11.5px; color: #667; line-height: 1.55; margin: 10px 0 0; padding-top: 8px; border-top: 1px dashed #dde1ec; }
+            .t1-rule .up { color: #0e7a46; font-weight: 600; } .t1-rule .down { color: #bb2018; font-weight: 600; }
             .today-todo { margin-top: 14px; padding-top: 12px; border-top: 1px solid #f0eee8; }
             .today-todo-h { font: 700 .72rem 'IBM Plex Mono', monospace; letter-spacing: .1em; text-transform: uppercase; color: #7a776e; margin-bottom: 8px; }
             .today-todo-h span { color: #c8102e; font-weight: 700; } .today-todo-h span.up { color: #0e7a46; }
@@ -506,14 +544,14 @@
 
         @php $rc = $reconcile; @endphp
         <div class="ov-grid">
-        <h3 class="ov-group"><span class="ov-ic">🩺</span> Health &amp; status</h3>
+        <h3 class="ov-group"><span class="ov-ic">🩺</span> The basics</h3>
         <details class="stress-box" {{ $rc['tone'] !== 'open' ? 'open' : '' }}>
-            <summary class="stress-h">🧮 Does this add up? — data check
+            <summary class="stress-h">✅ Is my data correct?
                 @if ($rc['tone'] === 'off')<span class="neg">⚠ check this</span>
                 @elseif ($rc['tone'] === 'warn')<span style="color:#8a6a00">• heads up</span>
                 @else<span class="pos">✓ looks fine</span>@endif
             </summary>
-            <p class="stress-intro">A quick sanity check that nothing quietly went wrong — the total still matches your last capture, and the numbers aren't old.</p>
+            <p class="stress-intro">Checks your money figures haven't quietly gone wrong, and that the data isn't out of date.</p>
 
             @if ($rc['drift_flag'])
                 <p class="stress-intro" style="color:#bb2018">
@@ -568,10 +606,10 @@
 
         @if ($membership)
             <details class="stress-box">
-                <summary class="stress-h">🎖️ Privilege Circle — {{ $membership['tier'] }}
+                <summary class="stress-h">🎖️ My membership: {{ $membership['tier'] }}
                     @if ($membership['gap'])<span class="stress-worst">{{ number_format($membership['gap'], 0) }} pts to {{ $membership['next_tier'] }}</span>@endif
                 </summary>
-                <p class="stress-intro">Your Public Mutual membership status, read from your captured Portfolio page @if ($membership['as_of'])(as of {{ $membership['as_of'] }})@endif. Perks are in the <a href="{{ route('glossary') }}">glossary</a>.</p>
+                <p class="stress-intro">Your Public Mutual membership level, read from your own Portfolio page @if ($membership['as_of'])(as of {{ $membership['as_of'] }})@endif. Perks are in the <a href="{{ route('glossary') }}">glossary</a>.</p>
                 <table class="stress-tbl">
                     <tr><td>Tier</td><td class="r"><b>{{ $membership['tier'] }}</b></td></tr>
                     <tr><td>Your MGQP</td><td class="r">{{ number_format($membership['mgqp'], 0) }}</td></tr>
@@ -587,8 +625,8 @@
 
         @if ($featured->isNotEmpty())
             <details class="stress-box">
-                <summary class="stress-h">🏆 Public Mutual top performers @if ($featured->first()->as_at)<span class="stress-worst">as at {{ $featured->first()->as_at }}</span>@endif</summary>
-                <p class="stress-intro">The funds Public Mutual is promoting on your dashboard, by {{ $featured->first()->metric }}. Captured from PMO — ✓ marks ones you already hold.</p>
+                <summary class="stress-h">🏆 Best funds right now (Public Mutual's own list) @if ($featured->first()->as_at)<span class="stress-worst">as at {{ $featured->first()->as_at }}</span>@endif</summary>
+                <p class="stress-intro">The funds Public Mutual is showing off on your dashboard, ranked by {{ $featured->first()->metric }}. Captured from PMO — ✓ marks ones you already hold.</p>
                 <table class="stress-tbl">
                     <tr><th>Fund</th><th class="r">Return</th><th>Yours?</th></tr>
                     @foreach ($featured as $f)
@@ -627,7 +665,7 @@
             }
         @endphp
         <details class="stress-box">
-            <summary class="stress-h">🕓 Order cut-off</summary>
+            <summary class="stress-h">🕓 Deadline to buy or sell today</summary>
             <p class="stress-intro" style="margin:2px 0 0"><span class="{{ $cutTone === 'open' ? 'pos' : ($cutTone === 'warn' ? '' : 'neg') }}">{{ $cutMsg }}</span> — public holidays excluded, check the calendar.</p>
         </details>
 
@@ -644,7 +682,7 @@
         @endphp
         <h3 class="ov-group"><span class="ov-ic">🏦</span> Retirement (PRS)</h3>
         <details class="stress-box">
-            <summary class="stress-h">🏦 PRS tax relief {{ $prsYr }}</summary>
+            <summary class="stress-h">🏦 PRS tax saving {{ $prsYr }}</summary>
             <table class="stress-tbl">
                 <tr><td>Contributed this year</td><td class="r">RM {{ number_format($prsTotal, 0) }}@if ($prsPend > 0) <span class="stress-worst">(incl. RM{{ number_format($prsPend, 0) }} pending)</span>@endif</td></tr>
                 <tr><td>Tax-relief cap</td><td class="r">RM 3,000 / year</td></tr>
@@ -664,10 +702,10 @@
 
         @if ($prsHistory->isNotEmpty())
             <details class="stress-box">
-                <summary class="stress-h">🏦 PRS contribution history
+                <summary class="stress-h">🏦 PRS: what I put in each year
                     @if ($prsTotals['wasted'] > 0)<span style="color:#8a6a00">• RM{{ number_format($prsTotals['wasted'], 0) }} over cap</span>@endif
                 </summary>
-                <p class="stress-intro">Every PRS contribution you've made, year by year. Relief is capped at RM3,000 per year — a year above that wastes the excess (no tax benefit on it).</p>
+                <p class="stress-intro">Every PRS payment you've made, year by year. You only get tax relief on the first RM3,000 each year — anything above that saves you nothing.</p>
                 <table class="stress-tbl">
                     <tr><th>Year</th><th class="r">Contributed</th><th class="r">Relief claimed</th><th>Status</th></tr>
                     @foreach ($prsHistory as $h)
@@ -709,10 +747,10 @@
             $concTone = $topW >= 30 ? 'off' : ($topW >= 25 ? 'warn' : 'open');
             $shortN = fn ($n) => (string) \Illuminate\Support\Str::of($n)->after('PUBLIC ');
         @endphp
-        <h3 class="ov-group"><span class="ov-ic">📊</span> Risk &amp; exposure</h3>
+        <h3 class="ov-group"><span class="ov-ic">📊</span> Am I spread out enough?</h3>
         <details class="stress-box">
-            <summary class="stress-h">📊 Concentration @if ($over->isNotEmpty())<span class="neg">⚠ over 30%</span>@endif</summary>
-            <p class="stress-intro">Single-fund weight of the whole book. Over 30% means one fund's drop swings the whole portfolio.</p>
+            <summary class="stress-h">📊 Too much in one fund? @if ($over->isNotEmpty())<span class="neg">⚠ over 30%</span>@endif</summary>
+            <p class="stress-intro">How much of your money sits in each fund. Over 30% in one fund means that fund alone can drag everything down.</p>
             <table class="stress-tbl">
                 <tr><th>Fund</th><th class="r">Weight</th></tr>
                 @foreach ($conc->take(6) as $c)
@@ -733,7 +771,7 @@
             $ccyx = app(\App\Services\PortfolioExposure::class)->currencies();
         @endphp
         <details class="stress-box">
-            <summary class="stress-h">💱 Currency exposure</summary>
+            <summary class="stress-h">💱 How much is in foreign money</summary>
             <p class="stress-intro">~{{ number_format($ccyx['foreign_pct'], 0) }}% of the book is in foreign currency — the ringgit moving swings your RM returns even when funds are flat. USD/MYR is live on the Dashboard. Built from each fund's real captured country breakdown (gold = USD; unlisted portion = MYR).</p>
             <table class="stress-tbl">
                 <tr><th>Currency</th><th class="r">% of book</th><th class="r">Value</th></tr>
@@ -752,9 +790,9 @@
             $topCcys = collect($ccyx['rows'])->take(5)->pluck('ccy')->all();
         @endphp
         <details class="stress-box">
-            <summary class="stress-h">📈 Currency mix over time</summary>
+            <summary class="stress-h">📈 Foreign money over time (advanced)</summary>
             @if ($expoHistory->count() >= 2)
-                <p class="stress-intro">How your top currencies' share of the book has drifted as you switch funds. One column per capture.</p>
+                <p class="stress-intro">How much of your money has been in foreign currency over time. One column per capture.</p>
                 <table class="stress-tbl">
                     <tr><th>Currency</th>@foreach ($expoHistory as $s)<th class="r">{{ $s->snap_date->format('d M') }}</th>@endforeach</tr>
                     @foreach ($topCcys as $ccy)
@@ -775,10 +813,10 @@
 
         @if ($attribution['tx_count'] > 0)
             @php $feeTot = $attribution['sales_charge'] + $attribution['sst']; @endphp
-            <h3 class="ov-group"><span class="ov-ic">💰</span> Money &amp; performance</h3>
+            <h3 class="ov-group"><span class="ov-ic">💰</span> Fees &amp; performance</h3>
             <details class="stress-box">
-                <summary class="stress-h">🧾 Cost &amp; return attribution</summary>
-                <p class="stress-intro">Where your money stands and what it cost. Fees are the real sales charges + SST from every transaction — the cumulative price of your buying and switching.</p>
+                <summary class="stress-h">🧾 Fees I've paid</summary>
+                <p class="stress-intro">What you put in, what it's worth now, and what Public Mutual charged you along the way.</p>
                 <table class="stress-tbl">
                     <tr><td>Invested (cost basis)</td><td class="r">RM {{ number_format($ptInv, 0) }}</td></tr>
                     <tr><td>Current value</td><td class="r">RM {{ number_format($ptVal, 0) }}</td></tr>
@@ -802,8 +840,8 @@
         @endphp
         @if ($benchmarks)
             <details class="stress-box">
-                <summary class="stress-h">📈 Each fund vs its own PMO benchmark</summary>
-                <p class="stress-intro">The fund's own annualised return minus its Public Mutual benchmark, straight from the captured factsheet. Green beat its benchmark; red lagged — a red fund means a plain index of the same market would have done better.</p>
+                <summary class="stress-h">📈 Is each fund beating its target? (advanced)</summary>
+                <p class="stress-intro">Did each fund do better or worse than the target it's measured against? (from its factsheet). Green beat its benchmark; red lagged — a red fund means a plain index of the same market would have done better.</p>
                 <table class="stress-tbl">
                     <tr><th>Fund</th><th class="r">Period</th><th class="r">Fund</th><th class="r">Benchmark</th><th class="r">Difference</th><th>Verdict</th></tr>
                     @foreach ($benchmarks as $b)
@@ -821,8 +859,8 @@
         @endif
         @if ($riskAdj)
             <details class="stress-box">
-                <summary class="stress-h">⚖️ Return per unit of risk</summary>
-                <p class="stress-intro">Each fund's return ÷ its Public Mutual factsheet volatility factor — higher means more return for the price swings you stomach. Money-market excluded (its near-zero volatility distorts the ratio).</p>
+                <summary class="stress-h">⚖️ Reward vs risk (advanced)</summary>
+                <p class="stress-intro">How much return each fund gives you for how wildly it swings. Higher = a better reward for the ride. Money-market excluded (its near-zero volatility distorts the ratio).</p>
                 <table class="stress-tbl">
                     <tr><th>Fund</th><th class="r">Return</th><th class="r">Volatility</th><th class="r">Return / risk</th></tr>
                     @foreach ($riskAdj as $r)
@@ -840,8 +878,8 @@
         @php $cashPlan = app(\App\Services\CashPlanner::class)->plan(); @endphp
         @if ($cashPlan['cash'] > 1000 && $cashPlan['candidates'])
             <details class="stress-box">
-                <summary class="stress-h">💰 Deploying your idle e-Cash — RM {{ number_format($cashPlan['cash'], 0) }}</summary>
-                <p class="stress-intro">Where that cash helps most, on real PMO rules: cheaper sales charge, a buy level you've set, and room before a fund hits 30% of the book. Not advice — a ranked shortlist.</p>
+                <summary class="stress-h">💰 My idle cash — where to put it — RM {{ number_format($cashPlan['cash'], 0) }}</summary>
+                <p class="stress-intro">Where your idle cash would do the most good, using Public Mutual's real fees, a buy level you've set, and room before a fund hits 30% of the book. Not advice — a ranked shortlist.</p>
                 <table class="stress-tbl">
                     <tr><th>Fund</th><th class="r">Now</th><th class="r">Cost to buy</th><th class="r">Room to 30%</th><th>Flags</th></tr>
                     @foreach (array_slice($cashPlan['candidates'], 0, 5) as $c)
@@ -860,9 +898,9 @@
 
         @php $stress = app(\App\Services\PortfolioStress::class)->run(); @endphp
         @if ($stress)
-            <h3 class="ov-group"><span class="ov-ic">🎯</span> Scenarios &amp; look-through</h3>
+            <h3 class="ov-group"><span class="ov-ic">🎯</span> Advanced — skip unless curious</h3>
             <details class="stress-box">
-                <summary class="stress-h">🎯 Stress test — projected hit if…</summary>
+                <summary class="stress-h">🎯 If markets crash, how much do I lose? (advanced)</summary>
                 <p class="stress-intro">If the market has a bad day, how much would <em>you</em> lose and which fund hurts most? A what-if, not a prediction — each fund's real PMO geography × the shock.</p>
                 <table class="stress-tbl">
                     @foreach ($stress as $s)
@@ -903,8 +941,8 @@
         @endif
         @if ($sectors)
             <details class="stress-box">
-                <summary class="stress-h">🏭 Sector look-through</summary>
-                <p class="stress-intro">Weighted from each fund's captured top-5 sectors — where the whole book leans. Technology dominates via your AI + semiconductor funds. (% of total book; captured sectors don't sum to 100%.)</p>
+                <summary class="stress-h">🏭 What industries my money is in (advanced)</summary>
+                <p class="stress-intro">Which industries your money is really in, adding up all your funds. Technology dominates via your AI + semiconductor funds. (% of total book; captured sectors don't sum to 100%.)</p>
                 <table class="stress-tbl">
                     <tr><th>Sector</th><th class="r">% of book</th><th class="r">Value</th></tr>
                     @foreach (array_slice($sectors, 0, 6) as $s)
@@ -919,8 +957,8 @@
         @endif
         @if ($overlap)
             <details class="stress-box">
-                <summary class="stress-h">🔍 Same stock across funds — hidden concentration</summary>
-                <p class="stress-intro">A stock you hold through more than one fund. The fund-level weights don't show this — a single-stock shock hits several of your funds at once.</p>
+                <summary class="stress-h">🔍 Same company in several funds (advanced)</summary>
+                <p class="stress-intro">A company you own through more than one fund — so if it falls, several of your funds fall together.</p>
                 <table class="stress-tbl">
                     <tr><th>Stock</th><th class="r">In funds</th><th class="r">Combined fund value</th><th>Which funds</th></tr>
                     @foreach ($overlap as $s)

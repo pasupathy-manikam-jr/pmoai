@@ -29,7 +29,7 @@
 
         <table class="rpt-table">
             <thead>
-                <tr><th></th><th>Fund</th><th class="r">Invested</th><th class="r">Value</th><th class="r">Gain/loss</th><th class="r">%</th><th class="r">Weight</th><th>AI call</th></tr>
+                <tr><th></th><th>Fund</th><th class="r">Invested</th><th class="r">Value</th><th class="r">Gain/loss</th><th class="r">%</th><th class="r">Weight</th><th>AI suggestion</th></tr>
             </thead>
             <tbody>
                 @foreach ($held as $i => $h)

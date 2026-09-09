@@ -385,6 +385,8 @@ class SnapshotController extends Controller
 
         // "Today" card — daily movers, cut-off clock, drift flags, checklist.
         $daily = app(\App\Services\DailyOverview::class)->build();
+        // T+1 edge: expected next-price move per held fund from today's index moves.
+        $expected = app(\App\Services\ExpectedNav::class)->forHeld();
         $actions = \App\Models\ActionItem::orderBy('sort')->get();
 
         // Privilege Circle status, parsed from the latest captured Portfolio page.
@@ -402,7 +404,7 @@ class SnapshotController extends Controller
             'alerts', 'history', 'review', 'past', 'prsThisYear', 'prsXirr',
             'transactions', 'pending', 'backtest', 'attribution', 'reconcile',
             'prsHistory', 'prsTotals', 'expoHistory',
-            'featured', 'heldCodeSet', 'detailIdByCode', 'membership', 'daily', 'actions', 'catPrices',
+            'featured', 'heldCodeSet', 'detailIdByCode', 'membership', 'daily', 'actions', 'catPrices', 'expected',
         ));
     }
 
@@ -764,8 +766,13 @@ class SnapshotController extends Controller
         $alerts = \App\Models\Alert::where('active', true)->whereNull('fired_at')
             ->get()->groupBy(fn ($a) => strtoupper($a->fund_code));
         $chat = \Illuminate\Support\Facades\Cache::get(\App\Jobs\AdviseChatJob::KEY, ['status' => 'idle', 'messages' => []]);
+        // T+1 expected next-price move, keyed by short fund name for the board.
+        $t1rows = app(\App\Services\ExpectedNav::class)->forHeld()['rows'];
+        $t1 = collect($t1rows)->keyBy('name');
+        // The intelligent brief: one headline, what changed, what's already done.
+        $brief = app(\App\Services\AdvisorBrief::class)->build($plan, $t1rows, \App\Models\ActionItem::all());
 
-        return view('snapshots.advisor', compact('plan', 'ai', 'alerts', 'chat'));
+        return view('snapshots.advisor', compact('plan', 'ai', 'alerts', 'chat', 't1', 'brief'));
     }
 
     /** Arm a price trigger from the advisor (act at a better moment). */
