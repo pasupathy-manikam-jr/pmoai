@@ -166,7 +166,8 @@ class AdvisorBrief
         }
         $sw = $r['switch']['state'] ?? null;
         $fee = $sw === 'free' ? ' Free to switch (held over 90 days).'
-            : ($sw === 'waiting' ? ' Note: free switch only from '.Carbon::parse($r['switch']['free_date'])->format('d M').' — moving earlier pays the load.' : '');
+            : ($sw === 'waiting' ? ' Note: free switch only from '.Carbon::parse($r['switch']['free_date'])->format('d M').' — moving earlier pays the load.'
+            : ($sw === 'cash' ? ' Deploying pays the destination fund\'s sales charge (bond 0.65%, e-equity 3.75%) — cash units never paid one.' : ''));
 
         $text = match ($r['action']) {
             'TRIM'   => "{$n} is {$r['weight']}% of your money — about {$rm} more than the 25% ceiling. Move that {$rm} into something else so one fund can't sink the book.{$fee}{$today}",

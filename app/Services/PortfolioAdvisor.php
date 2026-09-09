@@ -180,6 +180,13 @@ class PortfolioAdvisor
         if ($h['cat'] === 'PRS') {
             return ['state' => 'locked', 'days_left' => null, 'free_date' => null, 'since' => null];
         }
+        // Money-market (e-Cash) never paid a sales charge, so the 90-day
+        // free-switch clock doesn't apply: switching into equity/bond always
+        // pays the DESTINATION fund's sales charge (3.75%/5% equity, 0.65%/1%
+        // bond). Only MM→MM is free. Flag it so the UI doesn't say "free".
+        if ($h['cat'] === 'MM' || $this->isCashName($h['name'])) {
+            return ['state' => 'cash', 'days_left' => null, 'free_date' => null, 'since' => null];
+        }
 
         $lastIn = $h['code']
             ? \App\Models\Transaction::whereRaw('upper(fund_code) = ?', [strtoupper($h['code'])])

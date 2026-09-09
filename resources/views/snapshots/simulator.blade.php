@@ -327,12 +327,13 @@
                     // return into a much more volatile fund isn't a free win.
                     + (function () {
                         var vf = function (f) { return f && f.vf != null ? f.vf.toFixed(1) + (f.vclass ? ' (' + f.vclass + ')' : '') : '—'; };
+                        var srcIsCash = !fromHeld || /CASH|MONEY MARKET/i.test(fromHeld.name);
                         var sf = fromFund || (srcIsCash ? { vf: 0, vclass: 'cash' } : null);
                         var moreRisk = fromFund && fromFund.vf != null && to.vf != null && to.vf > fromFund.vf;
                         return '<tr><th>How much it swings</th><td class="' + (moreRisk ? 'neg' : '') + '">'
                             + vf(sf) + ' → ' + vf(to)
                             + (moreRisk ? ' ⚠ moving to a MORE volatile fund' : '')
-                            + '<br><span class="ps-sub">higher number = bigger price swings (from the fund's own factsheet)</span></td></tr>';
+                            + '<br><span class="ps-sub">higher number = bigger price swings (from the fund\'s own factsheet)</span></td></tr>';
                     })()
                     + '</table>'
                     + '<table><tr><th></th><th>If it stays</th><th>If it moves</th><th>Difference</th>'
