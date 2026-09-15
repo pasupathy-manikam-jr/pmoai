@@ -6,7 +6,7 @@
 @section('content')
     <div class="rb-page">
         <h1>Plan a rebalance</h1>
-        <p class="rb-lead">Type the % you want each fund to be, then <strong>Compute plan</strong>. You get the exact switches to get there and the fee cost. (Same-series switches are free after 90 days; gold, cross-series and cash→equity charge a fee.)</p>
+        <p class="rb-lead">Type the % you want each fund to be, then <strong>Compute plan</strong>. You get the exact switches to get there and the fee cost. Untouched rows stay as they are. Money you free up with no destination parks in e-Cash; extra buys draw from e-Cash first. (Same-series switches are free after 90 days; gold, cross-series and cash→equity charge a fee. PRS is locked.)</p>
 
         @php $total = $held->sum('value'); @endphp
 
@@ -24,7 +24,8 @@
                             <td class="rb-fund">{!! \App\Support\FundLink::to($h['name'], null, $h['code'], false) !!}<span class="rb-code">{{ $h['code'] }}</span></td>
                             <td class="r rb-mono">{{ number_format($h['value'], 0) }}</td>
                             <td class="r rb-now">{{ number_format($cur, 1) }}%</td>
-                            <td class="r"><span class="rb-inwrap"><input type="number" class="rb-target" data-i="{{ $i }}" value="{{ round($cur) }}" step="1" min="0" max="100">%</span></td>
+                            @php $prs = str_starts_with(strtoupper($h['code']), 'PRS') || str_contains(strtoupper($h['name']), ' PRS '); @endphp
+                            <td class="r"><span class="rb-inwrap"><input type="number" class="rb-target" data-i="{{ $i }}" value="{{ round($cur) }}" step="1" min="0" max="100" @disabled($prs) @if ($prs) title="PRS is retirement-locked — cannot switch in or out" @endif>%</span></td>
                         </tr>
                     @endforeach
                 </tbody>
@@ -68,7 +69,7 @@
         .rb-code { display: inline-block; margin-left: 6px; font-size: 11px; color: #aaa; font-weight: 400; }
         .rb-table tfoot th { padding: 10px 16px; border-top: 2px solid #eee; font-size: 13px; color: #444; }
         .rb-inwrap { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; color: #999; }
-        .rb-target { width: 54px; text-align: right; padding: 5px 7px; border: 1px solid #d5d5d5; border-radius: 6px; font-size: 14px; font-variant-numeric: tabular-nums; -moz-appearance: textfield; }
+        .rb-target { width: 76px; text-align: right; padding: 5px 7px; border: 1px solid #d5d5d5; border-radius: 6px; font-size: 14px; font-variant-numeric: tabular-nums; -moz-appearance: textfield; }
         .rb-target:focus { outline: none; border-color: #c8102e; box-shadow: 0 0 0 2px rgba(200,16,46,.12); }
         .rb-actions { display: flex; gap: 8px; padding: 12px 16px; background: #fafafa; border-top: 1px solid #eee; }
         .rb-btn { padding: 8px 18px; border: 0; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; }
@@ -98,18 +99,24 @@
         var isBond = function (f) { return /BOND|SUKUK|FIXED|ENHANCED BOND/i.test(f.name); };
         var isCash = function (f) { return /CASH|MONEY MARKET/i.test(f.name); };
         var noSwitch = function (f) { return /EMAS|GOLD FUND/i.test(f.name); };
-        var salesCharge = function (to) { return isBond(to) ? (isE(to) ? 0.65 : 1) : (isE(to) ? 3.75 : 5); };
         var cross = function (from, to) { return isE(from) !== isE(to); };
 
+        var salesCharge = function (to) {
+            if (noSwitch(to)) return 1;                 // e-Emas gold: cash purchase only, up to 1%
+            return isBond(to) ? (isE(to) ? 0.65 : 1) : (isE(to) ? 3.75 : 5);
+        };
         function chargePct(from, to) {
+            if (isCash(to)) return 0;                    // anything → e-Cash: switch/redeem, no charge
             if (isCash(from)) return salesCharge(to);   // money-market → equity = fresh sales charge
-            if (noSwitch(from)) return salesCharge(to); // gold has no switch — redeem then buy
+            if (noSwitch(from) || noSwitch(to)) return salesCharge(to); // gold: no switch facility — redeem, then buy
             if (cross(from, to)) return salesCharge(to); // e ↔ non-e — redeem + repurchase
             return 0;                                    // same-series fund-to-fund switch = free (≥90d)
         }
         function moveType(from, to) {
-            if (isCash(from)) return 'buy from cash (sales charge)';
+            if (isCash(to)) return isE(from) && !noSwitch(from) ? 'switch to e-Cash (free)' : 'redeem to e-Cash';
+            if (isCash(from)) return 'buy from e-Cash (sales charge)';
             if (noSwitch(from)) return 'redeem gold → buy';
+            if (noSwitch(to)) return 'redeem → buy gold (no switch into gold)';
             if (cross(from, to)) return 'redeem + rebuy (cross-series)';
             return 'switch (free, ≥90d)';
         }
@@ -160,6 +167,9 @@
             var sells = [], buys = [];
             inputs.forEach(function (inp) {
                 var i = +inp.dataset.i, h = HELD[i];
+                // untouched row (still shows its rounded default) or PRS = no move —
+                // otherwise rounding 32.33% → 32% invents a RM 1.9k phantom sell.
+                if (inp.disabled || inp.value === inp.defaultValue) return;
                 var target = (parseFloat(inp.value) || 0) / 100 * TOTAL;
                 var d = target - h.value;
                 if (d < -1) sells.push({ fund: h, rem: -d });
@@ -179,12 +189,35 @@
                 if (sl.rem < 1) si++;
                 if (by.rem < 1) bi++;
             }
-            var leftSell = sells.slice(si).reduce(function (a, x) { return a + x.rem; }, 0);
-            var leftBuy = buys.slice(bi).reduce(function (a, x) { return a + x.rem; }, 0);
+            // Unmatched sells park in e-Cash; unmatched buys draw from e-Cash
+            // (its own sales charge) before asking for new money.
+            var cash = HELD.find(isCash);
+            var cashIsSeller = sells.some(function (x) { return x.fund === cash; });
+            var cashIsBuyer = buys.some(function (x) { return x.fund === cash; });
+            var leftSell = 0, leftBuy = 0;
+            for (; si < sells.length; si++) {
+                var s1 = sells[si];
+                if (s1.rem < 1) continue;
+                if (cash && !cashIsSeller && s1.fund !== cash) {
+                    moves.push({ from: s1.fund, to: cash, amt: s1.rem, pct: 0, cost: 0, type: moveType(s1.fund, cash) });
+                } else leftSell += s1.rem;
+            }
+            var cashAvail = cash ? cash.value - moves.filter(function (m) { return m.from === cash; }).reduce(function (a, m) { return a + m.amt; }, 0) : 0;
+            for (; bi < buys.length; bi++) {
+                var b1 = buys[bi];
+                if (b1.rem < 1) continue;
+                var fromCash = (cash && !cashIsBuyer && b1.fund !== cash) ? Math.min(b1.rem, cashAvail) : 0;
+                if (fromCash > 1) {
+                    var p1 = chargePct(cash, b1.fund);
+                    moves.push({ from: cash, to: b1.fund, amt: fromCash, pct: p1, cost: fromCash * p1 / 100, type: moveType(cash, b1.fund) });
+                    totalCost += fromCash * p1 / 100; cashAvail -= fromCash;
+                }
+                leftBuy += b1.rem - fromCash;
+            }
 
             var html = '';
             if (Math.abs(s - 100) >= 0.5) {
-                html += '<p class="rb-warn">⚠ Targets add up to ' + s.toFixed(0) + '%, not 100% — fix the targets first (the plan below assumes the values as entered).</p>';
+                html += '<p class="rb-note">Targets add up to ' + s.toFixed(0) + '% — the ' + fmt(Math.abs(100 - s) / 100 * TOTAL) + ' difference ' + (s < 100 ? 'parks in e-Cash' : 'comes out of e-Cash') + '. Untouched rows stay as they are.</p>';
             }
             if (!moves.length) {
                 html += '<p class="rb-note">No moves needed — targets match current allocation.</p>';
@@ -199,7 +232,7 @@
                     + '<th class="r ' + (totalCost > 0 ? 'neg' : 'pos') + '">' + (totalCost > 0 ? fmt(totalCost) : 'RM 0') + '</th></tr></tfoot></table>';
                 html += '<p class="rb-note">' + fmt(totalCost) + ' = ' + (totalCost / TOTAL * 100).toFixed(2) + '% of your book, paid once. Same-series switches are free.</p>';
             }
-            if (leftSell > 1) html += '<p class="rb-note">↩ ' + fmt(leftSell) + ' of sells has no matching buy → it ends up as cash.</p>';
+            if (leftSell > 1) html += '<p class="rb-note">↩ ' + fmt(leftSell) + ' of sells has no matching buy → it ends up as cash outside the book.</p>';
             if (leftBuy > 1) html += '<p class="rb-note">➕ ' + fmt(leftBuy) + ' of buys has no matching sell → needs new money (fresh sales charge applies).</p>';
 
             out.innerHTML = html;
