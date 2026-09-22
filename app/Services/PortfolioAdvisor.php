@@ -170,26 +170,33 @@ class PortfolioAdvisor
      * (II/AI/SWS/RII) starts that clock. Gold has no switch facility; PRS is
      * locked — both flagged as not-switchable.
      *
+     * Public + primitive-argument so the holdings table shares this one
+     * definition — two copies of the 90-day rule would drift apart.
+     *
      * @return array{state:string, days_left:?int, free_date:?string, since:?string}
      */
-    private function freeSwitchStatus(array $h): array
+    public static function freeSwitchStatus(string $name, ?string $code, ?string $category = null): array
     {
-        if ($h['gold']) {
-            return ['state' => 'no_switch', 'days_left' => null, 'free_date' => null, 'since' => null];
+        $none = ['days_left' => null, 'free_date' => null, 'since' => null];
+
+        // e-Emas Gold has no switch facility at all — in or out is a cash
+        // redemption, which crystallises the gain or loss.
+        if (preg_match('/EMAS|GOLD/i', $name)) {
+            return ['state' => 'no_switch'] + $none;
         }
-        if ($h['cat'] === 'PRS') {
-            return ['state' => 'locked', 'days_left' => null, 'free_date' => null, 'since' => null];
+        if ($category === 'PRS' || preg_match('/^\s*PRS\b/i', $name) || str_starts_with(strtoupper((string) $code), 'PRS-')) {
+            return ['state' => 'locked'] + $none;
         }
         // Money-market (e-Cash) never paid a sales charge, so the 90-day
         // free-switch clock doesn't apply: switching into equity/bond always
         // pays the DESTINATION fund's sales charge (3.75%/5% equity, 0.65%/1%
         // bond). Only MM→MM is free. Flag it so the UI doesn't say "free".
-        if ($h['cat'] === 'MM' || $this->isCashName($h['name'])) {
-            return ['state' => 'cash', 'days_left' => null, 'free_date' => null, 'since' => null];
+        if ($category === 'MM' || preg_match('/CASH|MONEY MARKET/i', $name)) {
+            return ['state' => 'cash'] + $none;
         }
 
-        $lastIn = $h['code']
-            ? \App\Models\Transaction::whereRaw('upper(fund_code) = ?', [strtoupper($h['code'])])
+        $lastIn = $code
+            ? \App\Models\Transaction::whereRaw('upper(fund_code) = ?', [strtoupper($code)])
                 ->whereIn('trans_type', ['II', 'AI', 'SWS', 'RII'])
                 ->max('trans_date')
             : null;
@@ -281,7 +288,7 @@ class PortfolioAdvisor
             // 90-day free-switch clock: same-series switches are free of the
             // load once units are held ≥90 days. The latest "in" transaction
             // (buy / switch-in / reinvest) is the binding lot for that fund.
-            $switch = $this->freeSwitchStatus($h);
+            $switch = self::freeSwitchStatus($h['name'], $h['code'], $h['cat']);
 
             // Pre-filled alert to act at a better moment: a ceiling to trim
             // into for a rising over-weight fund; a dip level for a better

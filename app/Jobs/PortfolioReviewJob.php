@@ -75,11 +75,7 @@ class PortfolioReviewJob implements ShouldQueue
             $totVal += $val;
 
             $fund = $d->code ? Fund::whereRaw('upper(code) = ?', [strtoupper($d->code)])->first() : null;
-            $verdict = 'none';
-            if (! empty($d->payload['ai']['text'])
-                && preg_match('/Verdict[^:]*:\s*\**\s*(KEEP|SELL|REDUCE|BUY|WAIT|AVOID)\b/i', $d->payload['ai']['text'], $m)) {
-                $verdict = strtoupper($m[1]);
-            }
+            $verdict = \App\Services\FundAnalysis::verdict($d->payload['ai']['text'] ?? null) ?? 'none';
 
             $rows[] = implode(' | ', [
                 $d->code ?? '?',

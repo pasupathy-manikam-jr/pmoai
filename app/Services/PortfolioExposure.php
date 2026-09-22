@@ -106,34 +106,48 @@ class PortfolioExposure
     /**
      * Return-per-unit-of-risk for each held fund: the fund's longest available
      * annualised return divided by its captured volatility factor. Higher =
-     * more return for the price swings you stomach. Held funds only, sorted.
+     * more return for the price swings you stomach. Held funds only, grouped
+     * by the return window used — ratios from different windows are not
+     * comparable. 'skipped' counts held funds with no factsheet volatility.
      *
-     * @return array<int, array{name:string, return:float, vol:float, ratio:float}>
+     * @return array{rows: array<int, array{name:string, period:string, return:float, vol:float, ratio:float}>, skipped:int}
      */
     public function riskAdjusted(): array
     {
         $analysis = app(FundAnalysis::class);
         $out = [];
+        $skipped = 0;
         foreach ($this->held() as $d) {
             [$code, $hist, $fund] = $analysis->resolve($d);
             if (! $fund || preg_match('/CASH|MONEY MARKET|DEPOSIT/i', $fund->name)) {
                 continue;   // money-market's tiny volatility distorts the ratio
             }
-            $ret = $fund->return_5y ?? $fund->return_3y ?? $fund->return_1y;
+            [$ret, $period] = match (true) {
+                $fund->return_5y !== null => [$fund->return_5y, '5y'],
+                $fund->return_3y !== null => [$fund->return_3y, '3y'],
+                $fund->return_1y !== null => [$fund->return_1y, '1y'],
+                default                   => [null, null],
+            };
             $vol = optional($analysis->factsheetFor($code))->volatility_factor;
             if ($ret === null || ! $vol || (float) $vol <= 0) {
+                $skipped++;
                 continue;
             }
             $out[] = [
                 'name'   => $this->short($fund->name),
+                'period' => $period,
                 'return' => (float) $ret,
                 'vol'    => (float) $vol,
                 'ratio'  => round((float) $ret / (float) $vol, 2),
             ];
         }
-        usort($out, fn ($a, $b) => $b['ratio'] <=> $a['ratio']);
+        // Rank INSIDE a period only. A 5y ratio and a 1y ratio are different
+        // measurements, so sorting them into one list invents a league table
+        // that does not exist. Longest window first, best ratio within it.
+        $rank = ['5y' => 0, '3y' => 1, '1y' => 2];
+        usort($out, fn ($a, $b) => [$rank[$a['period']], -$a['ratio']] <=> [$rank[$b['period']], -$b['ratio']]);
 
-        return $out;
+        return ['rows' => $out, 'skipped' => $skipped];
     }
 
     /**
@@ -172,7 +186,10 @@ class PortfolioExposure
                 }
             }
         }
-        usort($out, fn ($a, $b) => $b['diff'] <=> $a['diff']);
+        // Same rule as riskAdjusted(): a 1y outperformance gap is not
+        // comparable to a 5y one, so rank within a period, never across.
+        $rank = ['5y' => 0, '3y' => 1, '1y' => 2, 'since' => 3];
+        usort($out, fn ($a, $b) => [$rank[$a['period']], -$a['diff']] <=> [$rank[$b['period']], -$b['diff']]);
 
         return $out;
     }

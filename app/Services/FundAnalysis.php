@@ -193,6 +193,29 @@ class FundAnalysis
      * True when the fund belongs to Public Mutual's e-Series family
      * (online-only channel; "e-" in the name, codes prefixed "Pe").
      */
+    /**
+     * The one-word verdict the model wrote on its "**Verdict for a ... : X**"
+     * line. Anchored to that line on purpose — a loose word match picks up
+     * "sell-off" / "hold up" from the prose and reports the opposite call.
+     * Returns null when the model wrote no verdict ("Insufficient data").
+     */
+    public static function verdict(?string $text): ?string
+    {
+        return $text && preg_match('/Verdict[^:\n]*:\s*\**\s*(KEEP|SELL|REDUCE|BUY|WAIT|AVOID)\b/i', $text, $m)
+            ? strtoupper($m[1])
+            : null;
+    }
+
+    /** Verdicts that bet on price direction; KEEP/WAIT bet on nothing. */
+    public static function verdictDirection(?string $verdict): ?string
+    {
+        return match ($verdict) {
+            'BUY' => 'up',
+            'SELL', 'REDUCE', 'AVOID' => 'down',
+            default => null,
+        };
+    }
+
     public static function isESeries(Fund $fund): bool
     {
         return (bool) preg_match('/(^|\s)e-/i', $fund->name)

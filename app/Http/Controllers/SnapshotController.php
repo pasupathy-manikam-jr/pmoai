@@ -196,6 +196,14 @@ class SnapshotController extends Controller
                 return [
                     'id'          => $d->id,
                     'name'        => $d->name,
+                    'code'        => $code,
+                    // When a same-series switch stops costing the sales load.
+                    // Shared with the Advisor so one 90-day rule serves both.
+                    'switch'      => \App\Services\PortfolioAdvisor::freeSwitchStatus(
+                        $d->name,
+                        $code,
+                        \App\Models\Fund::whereRaw('upper(code) = ?', [(string) $code])->value('category'),
+                    ),
                     'invested'    => (float) $pos['invested'],
                     'value'       => $value,
                     'xirr'        => $x,
@@ -281,9 +289,12 @@ class SnapshotController extends Controller
         $history = \App\Models\PortfolioSnapshot::orderBy('snap_date')->get();
         $review = \App\Models\PortfolioReview::latest('id')->first();
 
-        // Verdict backtest: for each held fund's last AI call, did the price
-        // move the way the verdict implied? Bullish (buy/keep) wants up;
-        // bearish (reduce/sell) wants down. Uses captured price history.
+        // "Since the AI called it": for each held fund's last AI verdict, how
+        // has the price moved since? Only BUY / SELL / REDUCE / AVOID bet on
+        // direction, so only those get scored — a KEEP is "no action", not a
+        // forecast, and scoring it as "right if price rose" inflated the
+        // hit-rate with calls that never predicted anything. Direction only,
+        // no benchmark, no magnitude.
         $analysis = app(\App\Services\FundAnalysis::class);
         $backtest = FundDetail::whereRaw("payload->'position'->>'current_value' is not null")
             ->whereRaw("payload->'ai'->>'text' is not null")
@@ -291,23 +302,32 @@ class SnapshotController extends Controller
             ->map(function ($d) use ($analysis) {
                 [$code, $hist, $fund] = $analysis->resolve($d);
                 $at = $d->payload['ai']['at'] ?? null;
-                if (! $at || $hist->isEmpty()
-                    || ! preg_match('/\b(BUY|KEEP|HOLD|ACCUMULATE|REDUCE|TRIM|SELL|AVOID)\b/i', $d->payload['ai']['text'], $m)) {
+                $verdict = \App\Services\FundAnalysis::verdict($d->payload['ai']['text'] ?? null);
+                if (! $at || ! $verdict || $hist->isEmpty()) {
                     return null;
                 }
-                $verdict = strtoupper($m[1]);
                 $atDate = substr((string) $at, 0, 10);
-                $then = optional($hist->filter(fn ($p) => $p['date'] <= $atDate)->last())['price']
-                    ?? $hist->first()['price'];
+
+                // No captured price on or before the call date means we have
+                // nothing honest to measure from — drop the row rather than
+                // silently substituting a later price.
+                $then = optional($hist->filter(fn ($p) => $p['date'] <= $atDate)->last())['price'];
+                if (! $then) {
+                    return null;
+                }
+
                 $now = $hist->last()['price'];
-                $pct = $then > 0 ? ($now - $then) / $then * 100 : 0.0;
-                $bull = in_array($verdict, ['BUY', 'KEEP', 'HOLD', 'ACCUMULATE']);
-                $correct = abs($pct) < 1 ? null : ($bull ? $pct > 0 : $pct < 0);
+                $pct = ($now - $then) / $then * 100;
+                $want = \App\Services\FundAnalysis::verdictDirection($verdict);
+                $correct = ($want === null || abs($pct) < 1)
+                    ? null
+                    : ($want === 'up' ? $pct > 0 : $pct < 0);
 
                 return [
                     'name' => $fund?->name ?? $d->name, 'verdict' => $verdict,
-                    'at' => $atDate, 'then' => (float) $then, 'now' => (float) $now,
-                    'pct' => $pct, 'bull' => $bull, 'correct' => $correct,
+                    'at' => $atDate, 'days' => (int) \Illuminate\Support\Carbon::parse($atDate)->diffInDays(now()),
+                    'then' => (float) $then, 'now' => (float) $now,
+                    'pct' => $pct, 'want' => $want, 'correct' => $correct,
                 ];
             })
             ->filter()
@@ -755,11 +775,7 @@ class SnapshotController extends Controller
                 $pos = $d->payload['position'];
                 $inv = (float) ($pos['invested'] ?? 0);
                 $val = (float) $pos['current_value'];
-                $verdict = null;
-                if (! empty($d->payload['ai']['text'])
-                    && preg_match('/\b(BUY|KEEP|HOLD|ACCUMULATE|REDUCE|TRIM|SELL|AVOID)\b/i', $d->payload['ai']['text'], $m)) {
-                    $verdict = strtoupper($m[1]);
-                }
+                $verdict = \App\Services\FundAnalysis::verdict($d->payload['ai']['text'] ?? null);
 
                 return ['name' => $d->name, 'invested' => $inv, 'value' => $val,
                     'pl' => $val - $inv, 'verdict' => $verdict];

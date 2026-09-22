@@ -64,6 +64,13 @@
         .alert-raw, .trig-raw { margin-top: 3px; font-size: 11px; color: #999; }
         .alert-raw summary { cursor: pointer; }
         .trig-plain { font-weight: 600; }
+        .cash-list { margin: 6px 0 12px; padding-left: 18px; line-height: 1.9; }
+        .cash-kind { font-size: 12px; color: #8a877f; margin: 0 6px; }
+        .cash-note { font-size: 12px; color: #8a6a00; }
+        .trig-orphan > summary { opacity: .55; }
+        .trig-dead { font-size: 11px; color: #8a6a00; background: #fdf6e7; border-radius: 10px; padding: 1px 7px; margin-left: 6px; }
+        .al-del { display: inline; margin: 0; }
+        .al-del button { border: 0; background: none; color: #c0392b; cursor: pointer; font-size: 12px; padding: 0; text-decoration: underline; }
         .trig-now { color: #888; font-size: 12px; }
     </style>
 
@@ -84,7 +91,7 @@
                 .pt-subrow .pt-acct { padding-left: 14px; font-variant-numeric: tabular-nums; }
             </style>
             <table class="pt-table">
-                <tr><th title="First-ever investment in this account (PMO 'Initial Investment on')">First invested</th><th title="When the current position was built (after selling out and restarting)">Held since</th><th>Fund</th><th title="Bought with new money, or funded by switching out of another fund">Funded by</th><th>Invested</th><th>Current value</th><th>Gain/loss (RM)</th><th>Gain/loss (%)</th><th title="Money-weighted annual return (XIRR) from your own transaction history">Annual return</th><th>Fees paid</th></tr>
+                <tr><th title="First-ever investment in this account (PMO 'Initial Investment on')">First invested</th><th title="When the current position was built (after selling out and restarting)">Held since</th><th title="When a same-series switch stops costing the sales charge — 90 days from the newest units you bought">Free to switch</th><th>Fund</th><th title="Bought with new money, or funded by switching out of another fund">Funded by</th><th>Invested</th><th>Current value</th><th>Gain/loss (RM)</th><th>Gain/loss (%)</th><th title="Money-weighted annual return (XIRR) from your own transaction history">Annual return</th><th>Fees paid</th></tr>
                 @foreach ($portfolio as $h)
                     @php $pl = $h['value'] - $h['invested']; $x = $h['xirr']; @endphp
                     <tr>
@@ -101,6 +108,28 @@
                             @else
                                 —
                             @endif
+                        </td>
+                        @php $sw = $h['switch']; @endphp
+                        <td class="pt-switch">
+                            @switch ($sw['state'])
+                                @case('free')
+                                    <span class="pos" title="Held since {{ \Illuminate\Support\Carbon::parse($sw['since'])->format('d M Y') }} — past 90 days, so a same-series switch costs no sales charge">✓ free now</span>
+                                    @break
+                                @case('waiting')
+                                    <span title="Newest units bought {{ \Illuminate\Support\Carbon::parse($sw['since'])->format('d M Y') }}. Switching before then pays the destination fund's sales charge.">{{ $sw['days_left'] }}d — {{ \Illuminate\Support\Carbon::parse($sw['free_date'])->format('d M Y') }}</span>
+                                    @break
+                                @case('no_switch')
+                                    <span class="neg" title="e-Emas Gold has no switch facility — getting out means redeeming to cash, which crystallises the gain or loss">✗ no switch</span>
+                                    @break
+                                @case('locked')
+                                    <span title="PRS is retirement-locked — you cannot switch it out to a non-PRS fund">🔒 PRS</span>
+                                    @break
+                                @case('cash')
+                                    <span title="e-Cash never paid a sales charge, so there is no 90-day clock — moving into equity or bond pays that fund's charge whenever you do it">n/a — pays on exit</span>
+                                    @break
+                                @default
+                                    <span title="No buy/switch-in transaction ingested for this fund, so the 90-day clock cannot be dated">—</span>
+                            @endswitch
                         </td>
                         <td><a href="{{ route('details.show', $h['id']) }}" target="_blank" rel="noopener" class="fund-link">{{ $h['name'] }}</a></td>
                         <td class="pt-origin">
@@ -138,6 +167,7 @@
                                 <td class="pt-date">
                                     @if (! empty($acct['since'])){{ \Illuminate\Support\Carbon::parse($acct['since'])->format('d M Y') }}@else —@endif
                                 </td>
+                                <td></td>
                                 <td class="pt-acct">↳ acct {{ $acct['account_no'] ?? '—' }}</td>
                                 <td></td>
                                 <td>{{ number_format($acct['invested'], 2) }}</td>
@@ -154,7 +184,7 @@
                     $totFees = $portfolio->sum(fn ($h) => $h['xirr']['fees'] ?? 0);
                 @endphp
                 <tr class="pt-total">
-                    <th colspan="4">Total</th>
+                    <th colspan="5">Total</th>
                     <th>{{ number_format($ptInv, 2) }}</th>
                     <th>{{ number_format($ptVal, 2) }}</th>
                     <th class="{{ $ptPl >= 0 ? 'pos' : 'neg' }}">{{ $fmtRm($ptPl) }}</th>
@@ -163,7 +193,7 @@
                     <th>RM {{ number_format($totFees, 2) }}</th>
                 </tr>
             </table>
-            <p class="ps-sub">"Original" = account's first-ever investment. "Run since" = when the current position was built — you've sold out and restarted several funds ("<" = run predates the statement archive). "Origin" ⇄ = funded by a switch from that fund. "My return /yr" = money-weighted (XIRR) from your own Statement of Transaction PDFs — download them from PMO, run <code>pmoai:ingest-stmt</code> or drop them in Downloads and tell me. "partial" = history incomplete, showing a number would mislead.</p>
+            <p class="ps-sub">"Original" = account's first-ever investment. "Run since" = when the current position was built — you've sold out and restarted several funds ("<" = run predates the statement archive). "Origin" ⇄ = funded by a switch from that fund. "Free to switch" = when a same-series switch stops costing the sales charge; the clock runs 90 days from your newest units, so a top-up restarts it. "My return /yr" = money-weighted (XIRR) from your own Statement of Transaction PDFs — download them from PMO, run <code>pmoai:ingest-stmt</code> or drop them in Downloads and tell me. "partial" = history incomplete, showing a number would mislead.</p>
             </div>
 
             <div id="tab-past" class="ps-tabpane" hidden>
@@ -173,7 +203,7 @@
                         @php $res = $p['out'] - $p['in']; @endphp
                         <tr>
                             <td class="pt-date">{{ \Illuminate\Support\Carbon::parse($p['first'])->format('M Y') }} → {{ \Illuminate\Support\Carbon::parse($p['last'])->format('M Y') }}</td>
-                            <td>{{ $p['name'] }} <span class="cat-code">{{ $p['code'] }}</span></td>
+                            <td>{!! \App\Support\FundLink::to($p['name'], null, $p['code']) !!}</td>
                             <td>{{ number_format($p['in'], 2) }}</td>
                             <td>{{ number_format($p['out'], 2) }}</td>
                             <td>
@@ -186,7 +216,7 @@
                         </tr>
                     @endforeach
                 </table>
-                <p class="ps-sub">Funds you've fully exited, from your statements. "Result" = money out − money in, shown only when the round-trip is fully recorded.</p>
+                <p class="ps-sub">Funds you've fully exited, from your statements. "Result" = money out − money in, shown only when the round-trip is fully recorded. Fund names open their detail page in a new tab.</p>
             </div>
 
             <div id="tab-transactions" class="ps-tabpane" hidden>
@@ -286,27 +316,57 @@
             @endif
 
             @if ($backtest->isNotEmpty())
-                @php $hits = $backtest->whereNotNull('correct')->where('correct', true)->count(); $scored = $backtest->whereNotNull('correct')->count(); @endphp
-                <h3 style="margin:18px 0 4px">Did the AI's calls work? <small style="font-weight:400;color:#888">— did past calls move the right way? {{ $hits }}/{{ $scored }} right</small></h3>
+                @php
+                    $scored = $backtest->whereNotNull('want');
+                    $hits   = $scored->where('correct', true)->count();
+                    $judged = $scored->whereNotNull('correct')->count();
+                    $noCall = $backtest->count() - $scored->count();
+                @endphp
+                <h3 style="margin:18px 0 2px">Since the AI called it</h3>
+                <p class="ps-sub" style="margin:0 0 8px">
+                    Where the price went after each held fund's latest verdict.
+                    @if ($judged)
+                        <b>{{ $hits }} of {{ $judged }}</b> directional call{{ $judged === 1 ? '' : 's' }} moved the way it implied.
+                    @else
+                        No directional call has moved far enough to judge yet.
+                    @endif
+                    @if ($noCall)
+                        {{ $noCall }} “keep” call{{ $noCall === 1 ? ' is' : 's are' }} not scored — keep means <em>don’t churn</em>, not <em>price will rise</em>.
+                    @endif
+                </p>
                 <table class="pt-table">
-                    <tr><th>Fund</th><th>AI said</th><th>On</th><th>Price then → now</th><th>Since</th><th>Was it right?</th></tr>
+                    <tr>
+                        <th>Fund</th>
+                        <th>Verdict</th>
+                        <th title="Date of the AI analysis this row scores">Called</th>
+                        <th title="How long the price has had to prove the call">Held for</th>
+                        <th>Price then → now</th>
+                        <th>Change</th>
+                        <th title="Only BUY / REDUCE / SELL / AVOID predict a direction">Moved as implied?</th>
+                    </tr>
                     @foreach ($backtest as $b)
                         <tr>
                             <td>{{ \Illuminate\Support\Str::of($b['name'])->after('PUBLIC ') }}</td>
-                            <td><span class="{{ $b['bull'] ? 'pos' : 'neg' }}">{{ $b['bull'] ? 'keep/buy' : 'sell/reduce' }}</span></td>
-                            <td class="pt-date">{{ \Illuminate\Support\Carbon::parse($b['at'])->format('d M') }}</td>
+                            <td><span class="{{ $b['want'] === null ? '' : ($b['want'] === 'up' ? 'pos' : 'neg') }}">{{ $b['verdict'] }}</span></td>
+                            <td class="pt-date">{{ \Illuminate\Support\Carbon::parse($b['at'])->format('d M Y') }}</td>
+                            <td>{{ $b['days'] }}d @if ($b['days'] > 60)<span class="neg" title="Old call — the thesis may have expired; re-run the fund analysis">· stale</span>@endif</td>
                             <td>{{ number_format($b['then'], 4) }} → {{ number_format($b['now'], 4) }}</td>
                             <td class="{{ $b['pct'] >= 0 ? 'pos' : 'neg' }}">{{ $b['pct'] >= 0 ? '+' : '' }}{{ number_format($b['pct'], 1) }}%</td>
                             <td>
-                                @if ($b['correct'] === null) <span title="Price barely moved">≈ flat</span>
-                                @elseif ($b['correct']) <span class="pos">✓ right</span>
-                                @else <span class="neg">✗ wrong</span>
+                                @if ($b['want'] === null)
+                                    <span title="A KEEP/WAIT predicts no direction, so there is nothing to score">no direction called</span>
+                                @elseif ($b['correct'] === null)
+                                    <span title="Moved less than 1% — too small to call either way">≈ flat</span>
+                                @elseif ($b['correct'])
+                                    <span class="pos" title="Price moved {{ $b['want'] }}, as the verdict implied">✓ yes</span>
+                                @else
+                                    <span class="neg" title="Verdict implied {{ $b['want'] }}; price went the other way">✗ no</span>
                                 @endif
                             </td>
                         </tr>
                     @endforeach
                 </table>
-                <p class="ps-sub">A "keep/buy" call counts as right if the price went up afterwards; a "sell/reduce" call if it went down. Direction only — not how much.</p>
+                <p class="ps-sub">Direction only — not size, and not against any benchmark, so a rising market flatters every call. Funds whose price history starts after the call date are left out entirely.</p>
             @endif
             </div>
 
@@ -323,7 +383,7 @@
         @endphp
         <div class="ov-hero">
             <div class="ov-hero-l">
-                <span class="ov-eyebrow">Portfolio value · {{ $snapshot->updated_at->format('d M Y') }}</span>
+                <span class="ov-eyebrow">Portfolio value · {{ ($reconcile['holdings_seen'] ?? $snapshot->updated_at)->format('d M Y') }}</span>
                 <div class="ov-total"><span class="ov-cur">RM</span>{{ number_format($ptVal, 0) }}</div>
                 <div class="ov-pl {{ $ptPl >= 0 ? 'up' : 'down' }}">
                     {{ $ptPl >= 0 ? '▲' : '▼' }} {{ $ptPl >= 0 ? '+' : '−' }}RM {{ number_format(abs($ptPl), 0) }}
@@ -753,7 +813,7 @@
             <p class="stress-intro">How much of your money sits in each fund. Over 30% in one fund means that fund alone can drag everything down.</p>
             <table class="stress-tbl">
                 <tr><th>Fund</th><th class="r">Weight</th></tr>
-                @foreach ($conc->take(6) as $c)
+                @foreach ($conc as $c)
                     <tr>
                         <td>{!! \App\Support\FundLink::to($c['name']) !!}</td>
                         <td class="r {{ $c['w'] >= 30 ? 'neg' : ($c['w'] >= 25 ? '' : '') }}">{{ number_format($c['w'], 1) }}%@if ($c['w'] >= 30) ⚠@endif</td>
@@ -770,44 +830,44 @@
             // USD/MYR etc. swing your returns even when the fund is flat.
             $ccyx = app(\App\Services\PortfolioExposure::class)->currencies();
         @endphp
+        @php
+            // Drift vs the oldest capture. The old "over time" panel printed one
+            // column per capture — 30 columns of ±1% noise nobody can read. The
+            // only question it answered is "has my currency mix moved?", which
+            // is one number per currency.
+            $ccyFirst = $expoHistory->first();
+            $ccyBase  = $expoHistory->count() >= 2 ? ($ccyFirst->exposure ?? null) : null;
+        @endphp
         <details class="stress-box">
             <summary class="stress-h">💱 How much is in foreign money</summary>
             <p class="stress-intro">~{{ number_format($ccyx['foreign_pct'], 0) }}% of the book is in foreign currency — the ringgit moving swings your RM returns even when funds are flat. USD/MYR is live on the Dashboard. Built from each fund's real captured country breakdown (gold = USD; unlisted portion = MYR).</p>
             <table class="stress-tbl">
-                <tr><th>Currency</th><th class="r">% of book</th><th class="r">Value</th></tr>
+                <tr>
+                    <th>Currency</th><th class="r">% of book</th><th class="r">Value</th>
+                    @if ($ccyBase)<th class="r" title="Change in this currency's share of the book since the first capture">vs {{ $ccyFirst->snap_date->format('d M') }}</th>@endif
+                </tr>
                 @foreach ($ccyx['rows'] as $r)
                     <tr>
                         <td>{{ $r['ccy'] }}</td>
                         <td class="r">{{ number_format($r['pct'], 1) }}%</td>
                         <td class="r">RM {{ number_format($r['rm'], 0) }}</td>
+                        @if ($ccyBase)
+                            @php $was = $ccyBase[$r['ccy']] ?? null; $drift = $was === null ? null : $r['pct'] - $was; @endphp
+                            <td class="r">
+                                @if ($drift === null)
+                                    <span title="Not held at the first capture">new</span>
+                                @elseif (abs($drift) < 0.5)
+                                    <span title="Was {{ number_format($was, 1) }}% — unchanged">flat</span>
+                                @else
+                                    <span class="{{ $drift > 0 ? '' : '' }}" title="Was {{ number_format($was, 1) }}%">{{ $drift > 0 ? '+' : '−' }}{{ number_format(abs($drift), 1) }} pts</span>
+                                @endif
+                            </td>
+                        @endif
                     </tr>
                 @endforeach
             </table>
-        </details>
-
-        @php
-            // Currency mix over time — top currencies tracked across captures.
-            $topCcys = collect($ccyx['rows'])->take(5)->pluck('ccy')->all();
-        @endphp
-        <details class="stress-box">
-            <summary class="stress-h">📈 Foreign money over time (advanced)</summary>
-            @if ($expoHistory->count() >= 2)
-                <p class="stress-intro">How much of your money has been in foreign currency over time. One column per capture.</p>
-                <table class="stress-tbl">
-                    <tr><th>Currency</th>@foreach ($expoHistory as $s)<th class="r">{{ $s->snap_date->format('d M') }}</th>@endforeach</tr>
-                    @foreach ($topCcys as $ccy)
-                        <tr>
-                            <td>{{ $ccy }}</td>
-                            @foreach ($expoHistory as $s)
-                                @php $v = $s->exposure[$ccy] ?? null; @endphp
-                                <td class="r">{{ $v !== null ? number_format($v, 1).'%' : '—' }}</td>
-                            @endforeach
-                        </tr>
-                    @endforeach
-                </table>
-                <small class="ps-sub">Built from the real captured country breakdown at each capture.</small>
-            @else
-                <p class="stress-intro">Tracking started {{ $expoHistory->first()?->snap_date->format('d M Y') ?? 'today' }}. The drift table appears once there are two or more captures on different days — keep capturing and it fills in.</p>
+            @if (! $ccyBase)
+                <small class="ps-sub">Drift appears once there are two or more captures on different days.</small>
             @endif
         </details>
 
@@ -841,13 +901,13 @@
         @if ($benchmarks)
             <details class="stress-box">
                 <summary class="stress-h">📈 Is each fund beating its target? (advanced)</summary>
-                <p class="stress-intro">Did each fund do better or worse than the target it's measured against? (from its factsheet). Green beat its benchmark; red lagged — a red fund means a plain index of the same market would have done better.</p>
+                <p class="stress-intro">Did each fund do better or worse than the target it's measured against? (from its factsheet). Green beat its benchmark; red lagged — a red fund means a plain index of the same market would have done better. Each fund is shown over the longest period it publishes, so <b>this is not one ranked list</b> — a 1-year gap and a 5-year gap are different measurements.</p>
                 <table class="stress-tbl">
-                    <tr><th>Fund</th><th class="r">Period</th><th class="r">Fund</th><th class="r">Benchmark</th><th class="r">Difference</th><th>Verdict</th></tr>
+                    <tr><th class="r" title="The period this row covers — only compare rows with the same period">Over</th><th>Fund</th><th class="r">It returned</th><th class="r">Target returned</th><th class="r">Difference</th><th>Verdict</th></tr>
                     @foreach ($benchmarks as $b)
                         <tr>
-                            <td>{{ \Illuminate\Support\Str::of($b['name']) }}</td>
                             <td class="r">{{ $b['period'] }}</td>
+                            <td>{{ \Illuminate\Support\Str::of($b['name']) }}</td>
                             <td class="r">{{ number_format($b['fund'], 2) }}%</td>
                             <td class="r">{{ number_format($b['bench'], 2) }}%</td>
                             <td class="r {{ $b['beat'] ? 'pos' : 'neg' }}">{{ $b['diff'] >= 0 ? '+' : '' }}{{ number_format($b['diff'], 2) }}%</td>
@@ -857,21 +917,25 @@
                 </table>
             </details>
         @endif
-        @if ($riskAdj)
+        @if ($riskAdj['rows'])
             <details class="stress-box">
                 <summary class="stress-h">⚖️ Reward vs risk (advanced)</summary>
-                <p class="stress-intro">How much return each fund gives you for how wildly it swings. Higher = a better reward for the ride. Money-market excluded (its near-zero volatility distorts the ratio).</p>
+                <p class="stress-intro">How much return each fund gives you for how wildly it swings. Higher = a better reward for the ride. <b>Compare only rows with the same period</b> — a 5-year figure and a 1-year figure measure different things. Money-market excluded (its near-zero volatility distorts the ratio).</p>
                 <table class="stress-tbl">
-                    <tr><th>Fund</th><th class="r">Return</th><th class="r">Volatility</th><th class="r">Return / risk</th></tr>
-                    @foreach ($riskAdj as $r)
+                    <tr><th>Fund</th><th class="r" title="The return window this row uses — the longest the fund publishes">Over</th><th class="r">Return</th><th class="r" title="Public Mutual's own volatility factor from the fund factsheet — not a standard deviation">Volatility</th><th class="r">Return / risk</th></tr>
+                    @foreach ($riskAdj['rows'] as $r)
                         <tr>
                             <td>{{ \Illuminate\Support\Str::of($r['name']) }}</td>
+                            <td class="r">{{ $r['period'] }}</td>
                             <td class="r {{ $r['return'] >= 0 ? 'pos' : 'neg' }}">{{ number_format($r['return'], 2) }}%</td>
                             <td class="r">{{ number_format($r['vol'], 1) }}</td>
                             <td class="r {{ $r['ratio'] >= 0 ? 'pos' : 'neg' }}"><b>{{ number_format($r['ratio'], 2) }}</b></td>
                         </tr>
                     @endforeach
                 </table>
+                @if ($riskAdj['skipped'])
+                    <small class="ps-sub">{{ $riskAdj['skipped'] }} held fund{{ $riskAdj['skipped'] === 1 ? '' : 's' }} left out — no volatility factor captured from the factsheet yet.</small>
+                @endif
             </details>
         @endif
 
@@ -879,20 +943,22 @@
         @if ($cashPlan['cash'] > 1000 && $cashPlan['candidates'])
             <details class="stress-box">
                 <summary class="stress-h">💰 My idle cash — where to put it — RM {{ number_format($cashPlan['cash'], 0) }}</summary>
-                <p class="stress-intro">Where your idle cash would do the most good, using Public Mutual's real fees, a buy level you've set, and room before a fund hits 30% of the book. Not advice — a ranked shortlist.</p>
-                <table class="stress-tbl">
-                    <tr><th>Fund</th><th class="r">Now</th><th class="r">Cost to buy</th><th class="r">Room to 30%</th><th>Flags</th></tr>
-                    @foreach (array_slice($cashPlan['candidates'], 0, 5) as $c)
-                        <tr>
-                            <td>{{ \Illuminate\Support\Str::of($c['name']) }}</td>
-                            <td class="r">{{ number_format($c['weight'], 1) }}%</td>
-                            <td class="r {{ $c['cost_pct'] <= 1 ? 'pos' : '' }}">{{ $c['cost_pct'] }}%</td>
-                            <td class="r">{{ $c['over'] ? '—' : 'RM '.number_format($c['headroom'], 0) }}</td>
-                            <td class="stress-worst">{{ $c['armed'] ? '🔔 buy level set' : '' }}{{ $c['over'] ? '⚠ over 30% — don\'t add' : '' }}{{ $c['is_bond'] ? ' · bond (safer)' : '' }}</td>
-                        </tr>
+                @php $topUp = collect($cashPlan['candidates'])->first(fn ($c) => $c['can_take'] > 0 && ! $c['over']); @endphp
+                <p class="stress-intro">Your cash sits in e-Cash, which can only move into other e-Series funds. Three you don't own yet:</p>
+                <ul class="cash-list">
+                    @foreach ($cashPlan['destinations'] as $d)
+                        <li>
+                            {!! \App\Support\FundLink::to($d['name'], null, null, false) !!}
+                            <span class="cash-kind">{{ ['Steadier' => 'steady', 'Balanced' => 'middle', 'Growth' => 'growth'][$d['tier']] ?? strtolower($d['tier']) }}</span>
+                            <b>costs {{ $d['fee_pct'] }}%</b>
+                            @if ($cashPlan['no_bond'] && $d['tier'] === 'Steadier')<span class="cash-note">— you own no bond fund</span>@endif
+                        </li>
                     @endforeach
-                </table>
-                <small class="ps-sub">Ranked cheapest + most room first; funds already over 30% (e-AI Tech) are pushed down — adding worsens concentration. Deploying into gold or a bond costs far less (1% / 0.65%) than equity (3.75%).</small>
+                </ul>
+                @if ($topUp)
+                    <p class="stress-intro">Or top up what you own: <b>{{ $topUp['name'] }}</b> can take RM {{ number_format($topUp['can_take'], 0) }} (costs {{ $topUp['cost_pct'] }}%) before it hits 30% of the book.</p>
+                @endif
+                <small class="ps-sub">The % is Public Mutual's sales charge to buy in — you pay it whenever you move cash out, so waiting doesn't avoid it.</small>
             </details>
         @endif
 
@@ -977,12 +1043,24 @@
         </div>{{-- /.ov-grid --}}
 
         <div class="ps-grid2">
+            @php
+                // An alert outlives its reason: sell the fund (or the index
+                // exposure behind it) and the trigger keeps sitting here
+                // watching a market you no longer touch. Flag those instead of
+                // quietly listing them next to the live ones.
+                $heldAlertCodes = \App\Models\FundDetail::whereRaw("payload->'position'->>'current_value' is not null")
+                    ->pluck('code')->filter()->map(fn ($c) => strtoupper($c))->all();
+                $liveSymbols = collect(app(\App\Services\PortfolioIndices::class)->derive())->pluck('symbol')->all();
+            @endphp
             <section class="ps-card">
                 <h2>Price triggers</h2>
                 @if ($armed->isNotEmpty())
                     @foreach ($armed as $a)
                         @php
                             $isIdx = (bool) $a->market_symbol;
+                            $orphan = $isIdx
+                                ? ! in_array($a->market_symbol, $liveSymbols, true)
+                                : ! in_array(strtoupper((string) $a->fund_code), $heldAlertCodes, true);
                             $dp = $isIdx ? 2 : 4;
                             $unit = $isIdx ? '' : 'RM';
                             $cur = $isIdx
@@ -997,21 +1075,31 @@
                                 : (optional($funds->first(fn ($f) => strtoupper($f->code ?? '') === strtoupper($a->fund_code)))->name ?? $a->fund_code);
                             $action = $a->condition === 'below' ? ($isIdx ? 'Alert if it drops to' : 'Buy if it drops to') : 'Watch if it rises to';
                         @endphp
-                        <details class="trig">
+                        <details class="trig {{ $orphan ? 'trig-orphan' : '' }}">
                             <summary>
                                 <span class="alert-chip">{{ $fnT }}</span>
                                 <span class="trig-plain">{{ $action }} {{ $unit }}{{ $lvl }}</span>
                                 @if ($curF)
                                     <span class="trig-now">now {{ $unit }}{{ $curF }}@if ($away !== null) · {{ number_format($away, 1) }}% away @endif</span>
                                 @endif
+                                @if ($orphan)
+                                    <span class="trig-dead" title="{{ $isIdx ? 'No fund you hold has exposure to this market any more' : 'You no longer hold this fund' }}">no longer held</span>
+                                @endif
                             </summary>
                             @if ($a->explanation)
                                 <p class="trig-exp">{{ $a->explanation }}</p>
                             @endif
                             <p class="trig-raw">signal: {{ $a->label }}</p>
+                            @if ($orphan)
+                                <p class="trig-exp">
+                                    Armed {{ $a->created_at->format('d M Y') }}, when this was still part of your book.
+                                    {{ $isIdx ? 'None of your funds report exposure to this market now.' : 'This fund is no longer in your portfolio.' }}
+                                    <form method="POST" action="{{ route('alerts.delete', $a) }}" class="al-del" data-confirm="Remove this trigger?" data-confirm-yes="Remove">@csrf<button type="submit">Remove it</button></form>
+                                </p>
+                            @endif
                         </details>
                     @endforeach
-                    <p class="ps-sub">A price level to act on. Checked after every price update; you get a notification and a banner here when reached. Click one for the reasoning.</p>
+                    <p class="ps-sub">A price level to act on. Checked after every price update; you get a notification and a banner here when reached. Click one for the reasoning. Greyed rows watch something you no longer hold — open one to remove it.</p>
                 @else
                     <p class="ps-sub">No triggers armed.</p>
                 @endif
