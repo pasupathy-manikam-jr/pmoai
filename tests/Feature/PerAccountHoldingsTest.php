@@ -36,6 +36,56 @@ class PerAccountHoldingsTest extends TestCase
         $this->assertEqualsWithDelta(15463.66, (float) $detail->payload['position']['current_value'], 0.01);
     }
 
+    public function test_fund_absent_from_capture_is_cleared_as_exited(): void
+    {
+        config(['ai.ingest_token' => 'test-token']);
+        $kept = FundDetail::create(['name' => 'PUBLIC ISLAMIC ASIA TACTICAL ALLOCATION FUND', 'raw_text' => '', 'payload' => [
+            'position' => ['invested' => 52920.0, 'current_value' => 58000.0, 'since' => '2026-07-13'],
+        ]]);
+        $exited = FundDetail::create(['name' => 'PUBLIC INDONESIA SELECT FUND', 'code' => 'PINDOSF', 'raw_text' => '', 'payload' => [
+            'position'  => ['invested' => 37322.84, 'current_value' => 30365.22, 'since' => '2020-05-18'],
+            'positions' => [['account_no' => '074114785', 'invested' => 37322.84, 'current_value' => 30365.22]],
+        ]]);
+
+        $alert = \App\Models\Alert::create([
+            'fund_code' => 'PINDOSF', 'condition' => 'above', 'level' => 0.19,
+            'label' => 'Indonesia: breakout', 'active' => true,
+        ]);
+
+        $this->withHeader('X-PMOAI-TOKEN', 'test-token')->postJson('/ingest-holdings', [
+            'holdings' => [
+                ['name' => 'PUBLIC ISLAMIC ASIA TACTICAL ALLOCATION FUND', 'account_no' => '137974826',
+                 'market_value' => 88356.96, 'investment_cost' => 83285.22],
+            ],
+        ])->assertOk();
+
+        // price triggers on the exited fund are retired with the position
+        $this->assertFalse((bool) $alert->refresh()->active);
+
+        // absent from the capture → position dropped, no longer counted
+        $this->assertArrayNotHasKey('position', $exited->refresh()->payload);
+        $this->assertArrayNotHasKey('positions', $exited->payload);
+        // present in the capture → updated, not cleared
+        $this->assertEqualsWithDelta(88356.96, (float) $kept->refresh()->payload['position']['current_value'], 0.01);
+    }
+
+    public function test_partial_capture_does_not_clear_unmatched_funds(): void
+    {
+        config(['ai.ingest_token' => 'test-token']);
+        $held = FundDetail::create(['name' => 'PUBLIC INDONESIA SELECT FUND', 'raw_text' => '', 'payload' => [
+            'position' => ['invested' => 37322.84, 'current_value' => 30365.22, 'since' => '2020-05-18'],
+        ]]);
+
+        // a row that matches no fund detail = parse we cannot trust
+        $this->withHeader('X-PMOAI-TOKEN', 'test-token')->postJson('/ingest-holdings', [
+            'holdings' => [
+                ['name' => 'SOME FUND NOT IN THE CATALOG', 'market_value' => 100.0, 'investment_cost' => 100.0],
+            ],
+        ])->assertOk();
+
+        $this->assertEqualsWithDelta(30365.22, (float) $held->refresh()->payload['position']['current_value'], 0.01);
+    }
+
     public function test_rejects_without_token(): void
     {
         $this->postJson('/ingest-holdings', ['holdings' => [

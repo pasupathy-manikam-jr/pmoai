@@ -695,6 +695,28 @@ class SnapshotController extends Controller
                 'accounts' => count($positions)];
         }
 
+        // A fund held before but absent from this capture is fully exited
+        // (switched or redeemed out) — PMO stops listing it. Drop the stale
+        // position so the totals match PMO instead of double-counting the
+        // switched-out leg. Only when every row matched: a partial parse
+        // must never look like an exit.
+        if (! collect($results)->contains(fn ($r) => ! $r['ok'])) {
+            $gone = FundDetail::whereRaw("payload->'position'->>'invested' is not null")
+                ->whereNotIn('id', array_keys($byDetail))->get();
+            foreach ($gone as $d) {
+                $payload = $d->payload ?? [];
+                unset($payload['position'], $payload['positions']);
+                $d->update(['payload' => $payload]);
+                // Price triggers on a fund we no longer hold would fire on
+                // nothing — retire them with the position.
+                if ($d->code) {
+                    \App\Models\Alert::whereRaw('upper(fund_code)=?', [strtoupper($d->code)])
+                        ->where('active', true)->update(['active' => false]);
+                }
+                $results[] = ['name' => $d->name, 'ok' => true, 'exited' => true];
+            }
+        }
+
         // Portfolio value history: one row per day, refreshed on every
         // holdings capture — the equity curve's data source.
         $held = FundDetail::whereRaw("payload->'position'->>'invested' is not null")->get();
