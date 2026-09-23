@@ -108,4 +108,28 @@ class PerAccountHoldingsTest extends TestCase
 
         $this->assertEqualsWithDelta(106000.0, (float) $ut->refresh()->payload['position']['current_value'], 0.01);
     }
+
+    /** First-invested comes from the PMO account page, never the capture date. */
+    public function test_first_invested_reads_pmo_page_and_never_defaults_to_today(): void
+    {
+        config(['ai.ingest_token' => 'test-token']);
+        \Illuminate\Support\Facades\DB::table('page_captures')->insert([
+            'url' => 'https://www.publicmutualonline.com.my/Ut_AcctDetails.aspx', 'title' => 'x', 'hash' => 'h1',
+            // PMO uses non-breaking spaces between words
+            'text' => "077221901\u{00A0}PUBLIC e-ARTIFICIAL INTELLIGENCE TECHNOLOGY FUND\nInitial Investment on\u{00A0}07/09/2020\n Transact",
+            'captured_at' => now(), 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $ai = FundDetail::create(['name' => 'PUBLIC e-ARTIFICIAL INTELLIGENCE TECHNOLOGY FUND', 'code' => 'PeAITF', 'raw_text' => '', 'payload' => []]);
+        $unknown = FundDetail::create(['name' => 'PRS STRATEGIC EQUITY', 'raw_text' => '', 'payload' => []]);
+
+        $this->withHeader('X-PMOAI-TOKEN', 'test-token')->postJson('/ingest-holdings', [
+            'holdings' => [
+                ['name' => 'PUBLIC e-ARTIFICIAL INTELLIGENCE TECHNOLOGY FUND', 'code' => 'PeAITF', 'account_no' => '077221901', 'market_value' => 199160, 'investment_cost' => 159539],
+                ['name' => 'PRS STRATEGIC EQUITY', 'account_no' => '06244382', 'market_value' => 18127, 'investment_cost' => 15046],
+            ],
+        ])->assertOk();
+
+        $this->assertSame('2020-09-07', $ai->refresh()->payload['position']['since']);
+        $this->assertNull($unknown->refresh()->payload['position']['since']);
+    }
 }

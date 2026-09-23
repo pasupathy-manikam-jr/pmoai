@@ -671,7 +671,7 @@ class SnapshotController extends Controller
                     'invested'      => $a['investment_cost'],
                     'current_value' => $a['market_value'],
                     'price'         => $a['price'],
-                    'since'         => $since ?? $prevSince ?? now()->toDateString(),
+                    'since'         => $since ?? FundDetail::firstInvested($detail->code, $a['account_no']) ?? $prevSince,
                 ];
             }
 
@@ -681,8 +681,7 @@ class SnapshotController extends Controller
             $payload['position'] = [
                 'invested'      => array_sum(array_column($positions, 'invested')),
                 'current_value' => array_sum(array_column($positions, 'current_value')),
-                'since'         => collect($positions)->pluck('since')->filter()->min()
-                    ?? now()->toDateString(),
+                'since'         => collect($positions)->pluck('since')->filter()->min(),
             ];
             $detail->update(['payload' => $payload]);
 
