@@ -92,4 +92,20 @@ class PerAccountHoldingsTest extends TestCase
             ['name' => 'X', 'market_value' => 1, 'investment_cost' => 1],
         ]])->assertStatus(401);
     }
+
+    /** PMO lists PRS on its own page — a PRS-only capture must not exit unit trusts. */
+    public function test_prs_only_capture_leaves_unit_trusts_alone(): void
+    {
+        config(['ai.ingest_token' => 'test-token']);
+        $ut = FundDetail::create(['name' => 'PUBLIC e-EMAS GOLD FUND', 'code' => 'PeEMAS', 'raw_text' => '', 'payload' => [
+            'position' => ['invested' => 100000.0, 'current_value' => 106000.0, 'since' => '2025-01-01'],
+        ]]);
+        FundDetail::create(['name' => 'PRS EQUITY', 'raw_text' => '', 'payload' => []]);
+
+        $this->withHeader('X-PMOAI-TOKEN', 'test-token')->postJson('/ingest-holdings', [
+            'holdings' => [['name' => 'PRS EQUITY', 'market_value' => 3353.44, 'investment_cost' => 3000]],
+        ])->assertOk();
+
+        $this->assertEqualsWithDelta(106000.0, (float) $ut->refresh()->payload['position']['current_value'], 0.01);
+    }
 }

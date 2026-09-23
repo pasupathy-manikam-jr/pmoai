@@ -11,11 +11,11 @@ class FreeSwitchStatusTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function buy(string $code, string $date): void
+    private function buy(string $code, string $date, float $units = 100): void
     {
         Transaction::create([
-            'trans_ref' => $code.'-'.$date, 'fund_code' => $code, 'trans_type' => 'AI', 'account_no' => 'T1',
-            'trans_date' => $date, 'units' => 100, 'price' => 1, 'gross' => 100, 'net' => 100,
+            'trans_ref' => $code.'-'.$date, 'fund_code' => $code, 'trans_type' => $units > 0 ? 'AI' : 'SWR', 'account_no' => 'T1',
+            'trans_date' => $date, 'units' => $units, 'price' => 1, 'gross' => abs($units), 'net' => abs($units),
         ]);
     }
 
@@ -28,16 +28,30 @@ class FreeSwitchStatusTest extends TestCase
         $this->assertSame('free', $s['state']);
     }
 
-    public function test_a_top_up_restarts_the_ninety_day_clock(): void
+    /** PMO switches oldest units first — a top-up only locks its own units. */
+    public function test_a_top_up_only_locks_its_own_units(): void
     {
-        $this->buy('PIRESGF', now()->subDays(200)->toDateString());
-        $this->buy('PIRESGF', now()->subDays(30)->toDateString());
+        $this->buy('PIRESGF', now()->subDays(200)->toDateString(), 300);
+        $this->buy('PIRESGF', now()->subDays(30)->toDateString(), 100);
+
+        $s = PortfolioAdvisor::freeSwitchStatus('PUBLIC ISLAMIC REGIONAL ESG FUND', 'PIRESGF', 'EQ');
+
+        $this->assertSame('partly', $s['state']);
+        $this->assertEquals(75.0, $s['free_pct']);
+        $this->assertSame(now()->subDays(30)->addDays(90)->toDateString(), $s['free_date']);
+    }
+
+    /** A switch-out eats the OLDEST lot first, leaving only young units. */
+    public function test_switching_out_consumes_oldest_units_first(): void
+    {
+        $this->buy('PIRESGF', now()->subDays(200)->toDateString(), 100);
+        $this->buy('PIRESGF', now()->subDays(20)->toDateString(), 100);
+        $this->buy('PIRESGF', now()->subDays(10)->toDateString(), -100);
 
         $s = PortfolioAdvisor::freeSwitchStatus('PUBLIC ISLAMIC REGIONAL ESG FUND', 'PIRESGF', 'EQ');
 
         $this->assertSame('waiting', $s['state']);
-        $this->assertSame(60, $s['days_left']);
-        $this->assertSame(now()->subDays(30)->addDays(90)->toDateString(), $s['free_date']);
+        $this->assertEquals(0.0, $s['free_pct']);
     }
 
     /** Gold has no switch facility at all, however long it is held. */

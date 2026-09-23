@@ -52,7 +52,7 @@
         </section>
 
         @php
-            $wiHeld = $portfolio->map(fn ($h) => ['id' => $h['id'], 'name' => $h['name'], 'value' => $h['value'], 'invested' => $h['invested'] ?? null, 'since' => $h['since'] ?? null])->values();
+            $wiHeld = $portfolio->map(fn ($h) => ['id' => $h['id'], 'name' => $h['name'], 'value' => $h['value'], 'invested' => $h['invested'] ?? null, 'switch' => $h['switch'] ?? null])->values();
             $wiFunds = $funds->map(fn ($f) => [
                 'code' => $f->code,
                 'name' => $f->name,
@@ -178,15 +178,24 @@
                     why = 'cash/new money into ' + (isBond(to) ? 'bond' : 'equity/balanced')
                         + (isE(to) ? ' (e-series)' : '') + ' = fresh sales charge (max rate shown — actual may be lower)';
                 } else {
-                    var days = fromHeld.since ? Math.floor((Date.now() - new Date(fromHeld.since).getTime()) / 864e5) : null;
-                    if (days !== null && days < 90) {
-                        fee = isEName(fromHeld.name) ? 0.5 : 0.75;
-                        why = '⚠ source position only ' + days + ' days old (<90) — early-switch charge '
-                            + fee + '% (min RM' + (isEName(fromHeld.name) ? '1' : '50') + '). Free in ' + (90 - days) + ' more days';
-                    } else {
+                    // PMO switches oldest units first; free_pct = share of units
+                    // already past 90 days. Up to that much is free.
+                    var sw = fromHeld.switch || {};
+                    var freeRm = sw.free_pct != null ? fromHeld.value * sw.free_pct / 100 : null;
+                    var amtNow = parseFloat(document.getElementById('wi-amt').value) || 0;
+                    var early = isEName(fromHeld.name) ? 0.5 : 0.75;
+                    var freeOn = sw.free_date ? new Date(sw.free_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '';
+                    if (freeRm === null) {
                         fee = 0;
-                        why = 'fund-to-fund via PMO after 90 days = free (Mutual Gold)'
-                            + (days === null ? '. If the source was bought under 90 days ago: ~0.5–0.75%' : ' — source held ' + days + ' days');
+                        why = 'free after 90 days — no buy history ingested, so the date can\'t be checked (under 90 days: ' + early + '%)';
+                    } else if (amtNow <= freeRm + 0.5) {
+                        fee = 0;
+                        why = 'free — RM' + Math.floor(freeRm).toLocaleString() + ' of this fund is past 90 days'
+                            + (sw.free_pct < 100 ? ' (all of it free on ' + freeOn + ')' : '');
+                    } else {
+                        fee = early;
+                        why = '⚠ only RM' + Math.floor(freeRm).toLocaleString() + ' is free now — the rest was bought under 90 days ago. '
+                            + early + '% charge on a bigger switch, or wait until ' + freeOn + '.';
                     }
                 }
                 document.getElementById('wi-fee').value = fee;
@@ -222,6 +231,8 @@
                 if (this.value) { this.dataset.prev = this.value; this.value = ''; }
             });
             toEl.addEventListener('change', suggestFee);
+            // The free share is an amount, so the charge depends on how much you move.
+            document.getElementById('wi-amt').addEventListener('input', suggestFee);
             toEl.addEventListener('blur', function () {
                 if (!this.value && this.dataset.prev) { this.value = this.dataset.prev; delete this.dataset.prev; }
                 suggestFee();

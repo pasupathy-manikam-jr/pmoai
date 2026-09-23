@@ -173,11 +173,11 @@ class PortfolioAdvisor
      * Public + primitive-argument so the holdings table shares this one
      * definition — two copies of the 90-day rule would drift apart.
      *
-     * @return array{state:string, days_left:?int, free_date:?string, since:?string}
+     * @return array{state:string, days_left:?int, free_date:?string, since:?string, free_pct:?float}  state: free|partly|waiting|no_switch|locked|cash|unknown; free_pct = % of units already past 90 days
      */
     public static function freeSwitchStatus(string $name, ?string $code, ?string $category = null): array
     {
-        $none = ['days_left' => null, 'free_date' => null, 'since' => null];
+        $none = ['days_left' => null, 'free_date' => null, 'since' => null, 'free_pct' => null];
 
         // e-Emas Gold has no switch facility at all — in or out is a cash
         // redemption, which crystallises the gain or loss.
@@ -195,27 +195,57 @@ class PortfolioAdvisor
             return ['state' => 'cash'] + $none;
         }
 
-        $lastIn = $code
+        // PMO switches units out oldest-first, and the 90-day clock runs per
+        // lot. So age the units: replay the ledger FIFO (outflows eat the
+        // oldest lots), then see how much of what's left is 90+ days old.
+        // A top-up only makes ITS OWN units young — the old ones stay free.
+        $txs = $code
             ? \App\Models\Transaction::whereRaw('upper(fund_code) = ?', [strtoupper($code)])
-                ->whereIn('trans_type', ['II', 'AI', 'SWS', 'RII'])
-                ->max('trans_date')
-            : null;
+                ->orderBy('trans_date')->orderBy('id')->get(['trans_date', 'units'])
+            : collect();
 
-        if (! $lastIn) {
-            return ['state' => 'unknown', 'days_left' => null, 'free_date' => null, 'since' => null];
+        $lots = [];   // [date, units], oldest first
+        foreach ($txs as $t) {
+            $u = (float) $t->units;
+            if ($u > 0) {
+                $lots[] = [$t->trans_date->copy(), $u];
+                continue;
+            }
+            $out = -$u;
+            while ($out > 1e-6 && $lots) {
+                $take = min($out, $lots[0][1]);
+                $lots[0][1] -= $take;
+                $out -= $take;
+                if ($lots[0][1] <= 1e-6) {
+                    array_shift($lots);
+                }
+            }
+        }
+        $total = array_sum(array_column($lots, 1));
+        if ($total <= 0) {
+            return ['state' => 'unknown', 'free_pct' => null] + $none;
         }
 
-        $since = \Illuminate\Support\Carbon::parse($lastIn);
-        $held = (int) $since->diffInDays(now());
-        if ($held >= 90) {
-            return ['state' => 'free', 'days_left' => 0, 'free_date' => null, 'since' => $since->toDateString()];
+        $cut = now()->subDays(90);
+        $young = array_values(array_filter($lots, fn ($l) => $l[0]->gt($cut)));
+        $youngUnits = array_sum(array_column($young, 1));
+        $freePct = round(($total - $youngUnits) / $total * 100, 1);
+        $newest = end($lots)[0];
+
+        if (! $young) {
+            return ['state' => 'free', 'days_left' => 0, 'free_date' => null,
+                'since' => $newest->toDateString(), 'free_pct' => 100.0];
         }
+
+        // Days until the LAST young lot ages out = when everything is free.
+        $allFree = end($young)[0]->copy()->addDays(90);
 
         return [
-            'state'     => 'waiting',
-            'days_left' => 90 - $held,
-            'free_date' => $since->copy()->addDays(90)->toDateString(),
-            'since'     => $since->toDateString(),
+            'state'     => $freePct > 0 ? 'partly' : 'waiting',
+            'days_left' => (int) ceil(now()->diffInDays($allFree)),
+            'free_date' => $allFree->toDateString(),
+            'since'     => $newest->toDateString(),
+            'free_pct'  => $freePct,
         ];
     }
 

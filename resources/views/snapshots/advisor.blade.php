@@ -154,8 +154,10 @@
                                     @php $sw = $r['switch']; @endphp
                                     @if ($sw['state'] === 'free')
                                         <span class="sw-badge sw-free" title="Same-series switch is free of the load once held ≥90 days">✓ free to switch · last in {{ \Illuminate\Support\Carbon::parse($sw['since'])->format('d M Y') }}</span>
+                                    @elseif ($sw['state'] === 'partly')
+                                        <span class="sw-badge sw-free" title="PMO switches oldest units first; each purchase has its own 90-day clock">✓ {{ round($sw['free_pct']) }}% free now · rest {{ \Illuminate\Support\Carbon::parse($sw['free_date'])->format('d M') }}</span>
                                     @elseif ($sw['state'] === 'waiting')
-                                        <span class="sw-badge sw-wait" title="90-day clock runs from the latest buy / switch-in">🔒 free in {{ $sw['days_left'] }}d ({{ \Illuminate\Support\Carbon::parse($sw['free_date'])->format('d M') }}) · last in {{ \Illuminate\Support\Carbon::parse($sw['since'])->format('d M Y') }}</span>
+                                        <span class="sw-badge sw-wait" title="Every unit you hold was bought under 90 days ago">🔒 free in {{ $sw['days_left'] }}d ({{ \Illuminate\Support\Carbon::parse($sw['free_date'])->format('d M') }}) · last in {{ \Illuminate\Support\Carbon::parse($sw['since'])->format('d M Y') }}</span>
                                     @elseif ($sw['state'] === 'cash')
                                         <span class="sw-badge sw-wait" title="Money-market units never paid a sales charge, so the 90-day free-switch rule doesn't apply. Switching into equity pays 3.75% (e-series) / 5%; into bond 0.65% / 1%. Only cash→cash is free.">💰 deploy = dest. sales charge (bond 0.65% · equity 3.75%)</span>
                                     @elseif ($sw['state'] === 'no_switch')

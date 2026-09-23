@@ -720,9 +720,16 @@ class SnapshotController extends Controller
         // position so the totals match PMO instead of double-counting the
         // switched-out leg. Only when every row matched: a partial parse
         // must never look like an exit.
+        //
+        // PMO shows unit trusts and PRS on separate pages, so a capture only
+        // speaks for the kind of fund it contains: a PRS-only capture must not
+        // exit your unit trusts (that wiped 6 funds on 23 Sep 2026).
+        $isPrs = fn ($name) => (bool) preg_match('/^\s*(PUBLIC\s+MUTUAL\s+)?PRS\b/i', (string) $name);
+        $kinds = collect($byDetail)->map(fn ($i) => $isPrs($i['name']))->unique();
         if (! collect($results)->contains(fn ($r) => ! $r['ok'])) {
             $gone = FundDetail::whereRaw("payload->'position'->>'invested' is not null")
-                ->whereNotIn('id', array_keys($byDetail))->get();
+                ->whereNotIn('id', array_keys($byDetail))->get()
+                ->filter(fn ($d) => $kinds->contains($isPrs($d->name)));
             foreach ($gone as $d) {
                 $payload = $d->payload ?? [];
                 unset($payload['position'], $payload['positions']);
@@ -999,7 +1006,10 @@ class SnapshotController extends Controller
                 'name'     => $d->name,
                 'invested' => (float) $d->payload['position']['invested'],
                 'value'    => (float) $d->payload['position']['current_value'],
-                'since'    => $d->payload['position']['since'] ?? null,
+                // 90-day clock per lot, oldest units out first (same rule as
+                // the holdings column), NOT position.since — that is only when
+                // this app first saw the position and resets on a re-capture.
+                'switch'   => \App\Services\PortfolioAdvisor::freeSwitchStatus($d->name, $d->code),
             ])
             ->sortByDesc('value')
             ->values();

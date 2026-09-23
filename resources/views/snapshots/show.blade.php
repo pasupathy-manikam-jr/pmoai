@@ -91,7 +91,7 @@
                 .pt-subrow .pt-acct { padding-left: 14px; font-variant-numeric: tabular-nums; }
             </style>
             <table class="pt-table">
-                <tr><th title="First-ever investment in this account (PMO 'Initial Investment on')">First invested</th><th title="When the current position was built (after selling out and restarting)">Held since</th><th title="When a same-series switch stops costing the sales charge — 90 days from the newest units you bought">Free to switch</th><th>Fund</th><th title="Bought with new money, or funded by switching out of another fund">Funded by</th><th>Invested</th><th>Current value</th><th>Gain/loss (RM)</th><th>Gain/loss (%)</th><th title="Money-weighted annual return (XIRR) from your own transaction history">Annual return</th><th>Fees paid</th></tr>
+                <tr><th title="First-ever investment in this account (PMO 'Initial Investment on')">First invested</th><th title="When the current position was built (after selling out and restarting)">Held since</th><th title="How much you can switch without a charge — units held 90+ days, oldest switched first">Free to switch</th><th>Fund</th><th title="Bought with new money, or funded by switching out of another fund">Funded by</th><th>Invested</th><th>Current value</th><th>Gain/loss (RM)</th><th>Gain/loss (%)</th><th title="Money-weighted annual return (XIRR) from your own transaction history">Annual return</th><th>Fees paid</th></tr>
                 @foreach ($portfolio as $h)
                     @php $pl = $h['value'] - $h['invested']; $x = $h['xirr']; @endphp
                     <tr>
@@ -114,6 +114,9 @@
                             @switch ($sw['state'])
                                 @case('free')
                                     <span class="pos" title="Held since {{ \Illuminate\Support\Carbon::parse($sw['since'])->format('d M Y') }} — past 90 days, so a same-series switch costs no sales charge">✓ free now</span>
+                                    @break
+                                @case('partly')
+                                    <span title="PMO switches your oldest units first. {{ $sw['free_pct'] }}% of your units are past 90 days, so switching up to RM{{ number_format($h['value'] * $sw['free_pct'] / 100, 0) }} is free now; all of it on {{ \Illuminate\Support\Carbon::parse($sw['free_date'])->format('d M Y') }}."><span class="pos">RM{{ number_format($h['value'] * $sw['free_pct'] / 100, 0) }} free now</span><br><small>all on {{ \Illuminate\Support\Carbon::parse($sw['free_date'])->format('d M') }}</small></span>
                                     @break
                                 @case('waiting')
                                     <span title="Newest units bought {{ \Illuminate\Support\Carbon::parse($sw['since'])->format('d M Y') }}. Switching before then pays the destination fund's sales charge.">{{ $sw['days_left'] }}d — {{ \Illuminate\Support\Carbon::parse($sw['free_date'])->format('d M Y') }}</span>
@@ -193,7 +196,7 @@
                     <th>RM {{ number_format($totFees, 2) }}</th>
                 </tr>
             </table>
-            <p class="ps-sub">"Original" = account's first-ever investment. "Run since" = when the current position was built — you've sold out and restarted several funds ("<" = run predates the statement archive). "Origin" ⇄ = funded by a switch from that fund. "Free to switch" = when a same-series switch stops costing the sales charge; the clock runs 90 days from your newest units, so a top-up restarts it. "My return /yr" = money-weighted (XIRR) from your own Statement of Transaction PDFs — download them from PMO, run <code>pmoai:ingest-stmt</code> or drop them in Downloads and tell me. "partial" = history incomplete, showing a number would mislead.</p>
+            <p class="ps-sub">"Original" = account's first-ever investment. "Run since" = when the current position was built — you've sold out and restarted several funds ("<" = run predates the statement archive). "Origin" ⇄ = funded by a switch from that fund. "Free to switch" = when a same-series switch stops costing the sales charge; PMO switches your oldest units first, and each purchase has its own 90-day clock — a top-up only locks its own units. "My return /yr" = money-weighted (XIRR) from your own Statement of Transaction PDFs — download them from PMO, run <code>pmoai:ingest-stmt</code> or drop them in Downloads and tell me. "partial" = history incomplete, showing a number would mislead.</p>
             </div>
 
             <div id="tab-past" class="ps-tabpane" hidden>
